@@ -61,7 +61,7 @@ import sklearn.metrics
 import pandas as pd
 from sklearn.svm import SVC
 from copy import copy
-from Modules import thesis_module as tm
+import thesis_module as tm
 from tqdm import tqdm
 
 n_jobs = np.min((size,n_jobs)) #Remove unneccessary strain on CPU
