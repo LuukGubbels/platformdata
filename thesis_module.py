@@ -241,6 +241,7 @@ class TrainWorker(Thread):
                 self.bayescal)
             finally:
                 self.q.task_done()
+                break
 
     def fit_clf(self, X, y, alg, tag, 
                 ens, features_list, vectorizers, cvs, clf_scores, 
@@ -297,6 +298,7 @@ class PredictWorker(Thread):
                     self.predict_clf(self.X, alg, tag, vectorizer, cv, self.y_pred, self.lock)
             finally:
                 self.q.task_done()
+                break
     
     def predict_clf(self, X, alg, tag, vectorizer, cv, y_pred, lock):
         """
@@ -518,14 +520,15 @@ def metrics(y_true, y_pred, threshold=0.5):
         auroc:      AUROC
         BA:         balanced accuracy
     """
+    sPCC = rho(y_true, y_pred)
     acc = sk.metrics.accuracy_score(y_true,y_pred>=threshold)
-    prec = sk.metrics.precision_score(y_true,y_pred>=threshold)
-    rec = sk.metrics.recall_score(y_true,y_pred>=threshold)
-    F1 = sk.metrics.f1_score(y_true,y_pred>=threshold)
+    # prec = sk.metrics.precision_score(y_true,y_pred>=threshold)
+    # rec = sk.metrics.recall_score(y_true,y_pred>=threshold)
+    # F1 = sk.metrics.f1_score(y_true,y_pred>=threshold)
     auroc = sk.metrics.roc_auc_score(y_true,y_pred)
     BA = sk.metrics.balanced_accuracy_score(y_true,y_pred>=threshold)
     phi = sk.metrics.matthews_corrcoef(y_true, y_pred>=threshold)
-    return acc, prec, rec, F1, auroc, BA, phi
+    return sPCC, acc, auroc, BA, phi
 
 def opt_treshold(y_true, y_predP):
     """
@@ -745,6 +748,16 @@ def strat_split(X,y, test_size = np.array([0.2,0.2])):
     y_train = y_train[ind].astype(int)
 
     return X_train, X_test, y_train, y_test
+
+def preprocess(file):
+    df = pd.read_csv(file, sep=";")
+    df = df.fillna(" ")
+    df = df[df['text'].str.split().apply(len)>=10]
+    df['text'].str.findall('\w{3,}').str.join(' ')
+    df['text'] = df['text'].str.replace("  "," ")
+
+    return df
+
 #--------------------------- Other ----------------------------#
 
 def cv(clf, X_train, y_train, X_test, y_test, scoring,
