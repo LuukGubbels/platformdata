@@ -15,7 +15,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import normalize
 import sys
 sys.path.append('../')
-from Modules import BayesCCal as bc
+import BayesCCal as bc
 
 #----------------------------- CLASSES ---------------------------------#
 
