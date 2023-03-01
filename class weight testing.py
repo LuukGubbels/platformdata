@@ -64,7 +64,7 @@ import sklearn.model_selection
 import sklearn.metrics
 import pandas as pd
 from sklearn.svm import SVC
-from Modules import thesis_module as tm
+import thesis_module as tm
 from tqdm import tqdm
 from copy import copy
 
