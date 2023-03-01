@@ -750,7 +750,7 @@ def strat_split(X,y, test_size = np.array([0.2,0.2])):
     return X_train, X_test, y_train, y_test
 
 def preprocess(file):
-    df = pd.read_csv(file, sep=";")
+    df = pd.read_csv(file, sep=",")
     df = df.fillna(" ")
     df = df[df['text'].str.split().apply(len)>=10]
     df['text'].str.findall('\w{3,}').str.join(' ')
