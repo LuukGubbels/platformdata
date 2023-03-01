@@ -4,15 +4,17 @@ sys.path.append('../')
 print()
 argv = sys.argv[1:]
 
-infiles = ['../platformSample_data2.csv','../randomSample_purified_data2.csv']
+# infiles = ['../platformSample_data2.csv','../randomSample_purified_data2.csv']
+train = 'platformSample_data2.csv'
+test = 'platformSample_data2.csv'
 outfile = '../Results/ClassWeightResults.csv'
-steps = 2
-iters = 5
+steps = 1
+iters = 1
 
 try:
     opts, args = getopt.getopt(argv,
-            "i:o:s:n:",
-            ["ifile=","ofile=","steps=","iters="])
+            "tr:te:o:s:n:",
+            ["train=","test=","ofile=","steps=","iters="])
 except getopt.GetoptError:
     sys.exit(2)
 if '?' in args or 'help' in args:
@@ -20,7 +22,9 @@ if '?' in args or 'help' in args:
     print('This file is used to benchmark linear SVMs using different class weights for positive cases in a logspace.')
     print()
     print('Options:')
-    print('-i, --ifile:   Defines the files from which files should be read. Input as a python list with file extension.')
+    print('-tr, --train:  Defines the file from which training data should be read. Input as a .csv file with extension.')
+    print('-te, --test:   Defines the file from which testing data should be read. Input as a .csv file with extension.')
+    # print('-i, --ifile:   Defines the files from which files should be read. Input as a python list with file extension.')
     print('-o, --ofile:   Defines the file in which results should be stored. Input with a file extension.')
     print('-s, --steps:   Defines the number of steps should be taken in the logspace. Non-integer numbers will be rounded down.')
     print('-n, --iters:   Defines the number of machines should be used per step in the logspace. Non-integer numbers will be rounded down.')
@@ -28,8 +32,12 @@ if '?' in args or 'help' in args:
     print()
     sys.exit(2)    
 for opt, arg in opts:
-    if opt in ("-i","--ifile"):
-        infiles = arg.strip('][').split(',')
+    if opt in ("-tr","--train"):
+        train = arg
+    elif opt in ("-te","--test"):
+        test = arg
+    # if opt in ("-i","--ifile"):
+    #     infiles = arg.strip('][').split(',')
     elif opt in ("-o","--ofile"):
         outfile = arg
     elif opt in ("-s","--steps"):
@@ -56,7 +64,7 @@ import sklearn.model_selection
 import sklearn.metrics
 import pandas as pd
 from sklearn.svm import SVC
-import thesis_module as tm
+from Modules import thesis_module as tm
 from tqdm import tqdm
 from copy import copy
 
@@ -66,34 +74,41 @@ from copy import copy
 # steps
 # iters
 
+df_train = tm.preprocess(train)
+df_test = tm.preprocess(test)
+
+y_train = np.array([df_train['platform']])[0]
+X_train = df_train.drop(['platform'], axis=1)
+y_test = np.array([df_test['platform']])[0]
+X_test = df_test.drop(['platform'], axis=1)
 
 scale = np.logspace(0.1,2,steps)
 
-dfsvm = pd.DataFrame(columns= ['Positive class weight', 'BayesCal?','TP','Pos. Est.','Bias','Pos. Est. P','BiasP', 'Acc','Prec','Rec','F1','AUROC','BA','Phi'])
+dfsvm = pd.DataFrame(columns= ['Positive class weight', 'BayesCal?','TP','Pos. Est.','Bias','Pos. Est. P','BiasP', 'sPCC','Acc','AUROC','BA','MCC'])
 print("Iterating over the log scale:")
 for i in tqdm(scale, leave=False):
     mets = 0
     metsC = 0
     ### Loading Data ###
-    frames = []
-    for j in infiles:
-        df = pd.read_csv(j, sep=";")
-        df = df.fillna(" ")
-        df = df[df['text'].str.split().apply(len) >= 10]
-        frames.append(df)
-    df3 = pd.concat(frames, sort=True)
-    del(df)
+    # frames = []
+    # for j in infiles:
+    #     df = pd.read_csv(j, sep=";")
+    #     df = df.fillna(" ")
+    #     df = df[df['text'].str.split().apply(len) >= 10]
+    #     frames.append(df)
+    # df3 = pd.concat(frames, sort=True)
+    # del(df)
 
-    char = 3
-    ##Check if only words with 3 or more characters should be included
-    if char == 3:
-        df3['text'].str.findall('\w{3,}').str.join(' ')
+    # char = 3
+    # ##Check if only words with 3 or more characters should be included
+    # if char == 3:
+    #     df3['text'].str.findall('\w{3,}').str.join(' ')
             
-    ##Check and remove double spaces from texts
-    df3['text'] = df3['text'].str.replace("  ", " ")
+    # ##Check and remove double spaces from texts
+    # df3['text'] = df3['text'].str.replace("  ", " ")
 
-    y = np.array(df3['platform'])
-    X = df3.drop(['platform'], axis=1)
+    # y = np.array(df3['platform'])
+    # X = df3.drop(['platform'], axis=1)
 
     batch_size = 200
     
@@ -102,10 +117,10 @@ for i in tqdm(scale, leave=False):
     FP,FN,FPP,FNP,FPC,FNC,FPCP,FNCP = np.zeros(8)
     for j in tqdm(range(iters*2), desc="Training and predicting for weight " + str(np.round(i,3)), leave=False):
         if j%2==0:
-            X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X,y,test_size=0.2)
-            X_train, _, tfidfvectorizer, cv = tm.processing(X_train)
+            # X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X,y,test_size=0.2)
+            X_train1, _, tfidfvectorizer, cv = tm.processing(X_train)
             alg = SVC(kernel = 'linear', probability=True, class_weight={0:1,1:i})
-            alg.fit(X_train, y_train)
+            alg.fit(X_train1, y_train)
 
             X_test1 = tm.processing(X_test, tfidfvectorizer = tfidfvectorizer, cv=cv)
             TP = np.sum(y_test)
@@ -115,9 +130,9 @@ for i in tqdm(scale, leave=False):
             y_pred = alg.predict(X_test1)
             y_predP = alg.predict_proba(X_test1)[:,1]
             try:
-                mets += np.round(tm.metrics(y_test, y_pred),4)
+                mets += np.round(tm.metrics(y_test, y_predP),4)
             except:
-                mets = np.round(tm.metrics(y_test, y_pred),4)
+                mets = np.round(tm.metrics(y_test, y_predP),4)
             [_, FP1],[FN1,_] = tm.confusion_est(y_test, y_pred)
             FP += FP1
             FN += FN1
@@ -149,16 +164,16 @@ for i in tqdm(scale, leave=False):
             dfsvm.loc[len(dfsvm)] = newrow
         if j%2==1:
             alg = SVC(kernel = 'linear', probability=True, class_weight={0:1,1:i})
-            alg = tm.apply_BayesCCal(alg, X_train, y_train, density="test")
+            alg = tm.apply_BayesCCal(alg, X_train1, y_train, density="test")
 
             ### Prediction (BayesCal) ###
             splits = int(len(X_test1)/batch_size + 1)
             y_pred = alg.predict(X_test1)
             y_predP = alg.predict_proba(X_test1)[:,1]
             try:
-                metsC += np.round(tm.metrics(y_test, y_pred),4)
+                metsC += np.round(tm.metrics(y_test, y_predP),4)
             except:
-                metsC = np.round(tm.metrics(y_test,y_pred), 4)
+                metsC = np.round(tm.metrics(y_test,y_predP), 4)
             [_, FP1],[FN1,_] = tm.confusion_est(y_test, y_pred)
             FPC += FP1
             FNC += FN1

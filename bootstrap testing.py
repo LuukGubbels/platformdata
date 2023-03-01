@@ -9,14 +9,16 @@ argv = sys.argv[1:]
 # outfile
 # iters
 
-infiles = ["../platformSample_data2.csv", "../randomSample_purified_data2.csv"]
+# infiles = ["../platformSample_data2.csv", "../randomSample_purified_data2.csv"]
+train = "platformSample_data2.csv"
+test = "platformSample_data2.csv"
 outfile = '../Results/BootstrapResults.csv'
 iters = 5
 
 try:
     opts, args = getopt.getopt(argv,
-            "i:o:n:",
-            ["ifile=","ofile=","iters="])
+            "tr:te:o:n:",
+            ["train=","test=","ofile=","iters="])
 except getopt.GetoptError:
     sys.exit(2)
 if '?' in args or 'help' in args:
@@ -24,19 +26,30 @@ if '?' in args or 'help' in args:
     print('This file is used to benchmark linear SVMs using bootstrapping.')
     print()
     print('Options:')
-    print('-i, --ifile:   Defines the files from which files should be read. Input as a python list with file extension.')
+    print('-tr, --train:  Defines the file from which training data should be read. Input as a .csv file with extension.')
+    print('-te, --test:   Defines the file from which testing data should be read. Input as a .csv file with extension.')
+    # print('-i, --ifile:   Defines the files from which files should be read. Input as a python list with file extension.')
     print('-o, --ofile:   Defines the file in which results should be stored. Input with a file extension.')
     print('-n, --iters:   Defines the number of machines / bootstrap samples should be used. Non-integer numbers will be rounded down.')
 
     print()
     sys.exit(2)
 for opt, arg in opts:
-    if opt in ("-i","--ifile"):
-        infiles = arg.strip('][').split(',')
+    if opt in ("-tr","--train"):
+        train = arg
+    elif opt in ("-te","--test"):
+        test = arg
+    # if opt in ("-i","--ifile"):
+    #     infiles = arg.strip('][').split(',')
     elif opt in ("-o","--ofile"):
         outfile = arg
     elif opt in ("-n","--iters"):
         iters = int(arg) 
+
+if train == 0:
+    raise Exception("No training data inserted!")
+if test == 0:
+    raise Exception("No testing data inserted!")
 
 try:
     fo = open(outfile, "wb")
@@ -60,29 +73,34 @@ import sklearn.metrics
 import pandas as pd
 from sklearn.svm import SVC
 from copy import copy
-import thesis_module as tm
+from Modules import thesis_module as tm
 from tqdm import tqdm
 
-dfmet = pd.DataFrame(columns = ["Iteration", "TP", "Pos. Est.","Bias", "Acc", "Prec","Rec","F1","AUROC","BA", "Phi"])
+dfmet = pd.DataFrame(columns = ["Iteration", "TP", "Pos. Est.","Bias", "sPCC", "Acc","AUROC","BA", "MCC"])
 dfcal = copy(dfmet)
 
-frames = []
-for i in infiles:
-    df = pd.read_csv(i,sep=";")
-    df = df.fillna(" ")
-    df = df[df['text'].str.split().apply(len) >= 10]
-    frames.append(df)
-df3 = pd.concat(frames, sort=True)
-del(frames)
+# frames = []
+# for i in infiles:
+#     df = pd.read_csv(i,sep=";")
+#     df = df.fillna(" ")
+#     df = df[df['text'].str.split().apply(len) >= 10]
+#     frames.append(df)
+# df3 = pd.concat(frames, sort=True)
+# del(frames)
 
-char = 3
-if char == 3:
-    df3['text'].str.findall('\w{3,}').str.join(' ')
+# char = 3
+# if char == 3:
+#     df3['text'].str.findall('\w{3,}').str.join(' ')
 
-df3['text'] = df3['text'].str.replace("  ", " ")
+# df3['text'] = df3['text'].str.replace("  ", " ")
 
-y = np.array(df3['platform'])
-X = df3.drop(['platform'], axis=1)
+df_train = tm.preprocess(train)
+df_test = tm.preprocess(test)
+
+y_train = np.array([df_train['platform']])[0]
+X_train = df_train.drop(['platform'], axis=1)
+y_test = np.array([df_test['platform']])[0]
+X_test = df_test.drop(['platform'], axis=1)
 
 ###
 # Train test split section
@@ -95,19 +113,29 @@ X = df3.drop(['platform'], axis=1)
 # ->>> this depends on the size of the dataset
 ###
 
-Xpos = X[y==1]
-poslen = len(Xpos)
+X_train_pos = X_train[y_train==1]
+X_train_neg = X_train[y_train==0]
+del(X_train)
+
+poslen = len(X_train_pos)
+neglen = len(X_train_neg)
 ypos = np.ones(poslen)
-Xneg = X[y==0]
-neglen = len(Xneg)
 yneg = np.zeros(neglen)
 
-Xpos, Xpos_test, ypos, ypos_test = sklearn.model_selection.train_test_split(Xpos, ypos, test_size=0.2)
-poslen = len(Xpos)
-Xneg, Xneg_test, yneg, yneg_test = sklearn.model_selection.train_test_split(Xneg, yneg, test_size=0.2)
-neglen = len(Xneg)
-X_test = pd.concat([Xpos_test,Xneg_test])
-y_test = np.concatenate((ypos_test, yneg_test))
+
+# Xpos = X[y==1]
+# poslen = len(Xpos)
+# ypos = np.ones(poslen)
+# Xneg = X[y==0]
+# neglen = len(Xneg)
+# yneg = np.zeros(neglen)
+
+# Xpos, Xpos_test, ypos, ypos_test = sklearn.model_selection.train_test_split(Xpos, ypos, test_size=0.2)
+# poslen = len(Xpos)
+# Xneg, Xneg_test, yneg, yneg_test = sklearn.model_selection.train_test_split(Xneg, yneg, test_size=0.2)
+# neglen = len(Xneg)
+# X_test = pd.concat([Xpos_test,Xneg_test])
+# y_test = np.concatenate((ypos_test, yneg_test))
 TP = np.sum(y_test)
 
 y_pred = 0
@@ -119,10 +147,12 @@ print("Training and predicting:")
 for i in tqdm(range(iters), leave=False):
     alg = SVC(kernel = 'linear', probability=True)
 
+
+    # Make a bootstrap sample (30/70 split)
     Xpos_train = np.random.randint(0,poslen, poslen)
     ypos_train = ypos[Xpos_train]
-    Xpos_train = Xpos.iloc[Xpos_train]
-    Xneg_train, _, yneg_train, _ = sklearn.model_selection.train_test_split(Xneg,yneg, test_size=0.2)
+    Xpos_train = X_train_pos.iloc[Xpos_train]
+    Xneg_train, _, yneg_train, _ = sklearn.model_selection.train_test_split(X_train_neg,yneg, test_size=0.2) #int(7*poslen/3))
 
     X_train = pd.concat([Xpos_train, Xneg_train])
     X_train, features, tfidfvectorizer, cv = tm.processing(X_train)
