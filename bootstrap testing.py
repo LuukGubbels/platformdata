@@ -118,7 +118,7 @@ for i in tqdm(range(iters), leave=False):
     Xpos_train = np.random.randint(0,poslen, poslen)
     ypos_train = ypos[Xpos_train]
     Xpos_train = X_train_pos.iloc[Xpos_train]
-    Xneg_train, _, yneg_train, _ = sklearn.model_selection.train_test_split(X_train_neg,yneg, test_size=int(7*poslen/3)) #int(7*poslen/3))
+    Xneg_train, _, yneg_train, _ = sklearn.model_selection.train_test_split(X_train_neg,yneg, test_size=0.2) #int(7*poslen/3))
 
     X_train = pd.concat([Xpos_train, Xneg_train])
     X_train, features, tfidfvectorizer, cv = tm.processing(X_train)
@@ -126,12 +126,12 @@ for i in tqdm(range(iters), leave=False):
 
     alg = SVC(kernel = 'linear', probability=True)
     alg.fit(X_train, y_train)
+    algC = SVC(kernel = 'linear', probability=True)
     algC = tm.apply_BayesCCal(alg, X_train, y_train, density="test")
     algC.fit(X_train, y_train)
 
     #Testing Phase
 
-    line = 0
     y_test = []
     file = pd.read_csv(test, sep=';', chunksize=1)
 
@@ -148,9 +148,7 @@ for i in tqdm(range(iters), leave=False):
         # concat predictions
         # delete part
         try:
-
             df = next(file)
-            line += 1
             df = df.fillna(" ")
             df = df[df['text'].str.split().apply(len)>=10]
             dflen = len(df)
@@ -167,12 +165,13 @@ for i in tqdm(range(iters), leave=False):
             df = tm.processing(df, tfidfvectorizer=tfidfvectorizer, cv=cv)
             y_pred.append(alg.predict(df)[0])
             y_predP.append(alg.predict_proba(df)[:,1][0])
-            y_predC.append(algC.predict(df)[0])
+            y_predC.append(algC.predict(df, new_threshold = False)[0])
             y_predCP.append(algC.predict_proba(df)[:,1][0])
         except:
             break
-    print(y_test)
     TP = np.sum(y_test)
+
+    y_test = np.array(y_test)
     y_pred = np.array(y_pred)
     y_predP = np.array(y_predP)
     y_predC = np.array(y_predC)

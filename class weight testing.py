@@ -75,12 +75,10 @@ from copy import copy
 # iters
 
 df_train = tm.preprocess(train)
-df_test = tm.preprocess(test)
+
 
 y_train = np.array([df_train['platform']])[0]
 X_train = df_train.drop(['platform'], axis=1)
-y_test = np.array([df_test['platform']])[0]
-X_test = df_test.drop(['platform'], axis=1)
 
 scale = np.logspace(0.1,2,steps)
 
@@ -89,66 +87,98 @@ print("Iterating over the log scale:")
 for i in tqdm(scale, leave=False):
     mets = 0
     metsC = 0
-    ### Loading Data ###
-    # frames = []
-    # for j in infiles:
-    #     df = pd.read_csv(j, sep=";")
-    #     df = df.fillna(" ")
-    #     df = df[df['text'].str.split().apply(len) >= 10]
-    #     frames.append(df)
-    # df3 = pd.concat(frames, sort=True)
-    # del(df)
 
-    # char = 3
-    # ##Check if only words with 3 or more characters should be included
-    # if char == 3:
-    #     df3['text'].str.findall('\w{3,}').str.join(' ')
-            
-    # ##Check and remove double spaces from texts
-    # df3['text'] = df3['text'].str.replace("  ", " ")
-
-    # y = np.array(df3['platform'])
-    # X = df3.drop(['platform'], axis=1)
-
-    batch_size = 200
-    
     posest, bias, posestP, biasP = np.zeros(4)
     posestC, biasC, posestPC, biasPC = np.zeros(4)
     FP,FN,FPP,FNP,FPC,FNC,FPCP,FNCP = np.zeros(8)
-    for j in tqdm(range(iters*2), desc="Training and predicting for weight " + str(np.round(i,3)), leave=False):
-        if j%2==0:
-            # X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X,y,test_size=0.2)
-            X_train1, _, tfidfvectorizer, cv = tm.processing(X_train)
-            alg = SVC(kernel = 'linear', probability=True, class_weight={0:1,1:i})
-            alg.fit(X_train1, y_train)
+    for j in tqdm(range(iters), desc="Training and predicting for weight " + str(np.round(i,3)), leave=False):
+        #Training Phase
+        # X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X,y,test_size=0.2)
+        X_train1, _, tfidfvectorizer, cv = tm.processing(X_train)
+        alg = SVC(kernel = 'linear', probability=True, class_weight={0:1,1:i})
+        alg.fit(X_train1, y_train)
+        algC = tm.apply_BayesCCal(alg, X_train1, y_train, density="test")
+        algC.fit(X_train1,y_train)
 
-            X_test1 = tm.processing(X_test, tfidfvectorizer = tfidfvectorizer, cv=cv)
-            TP = np.sum(y_test)
+        #Testing Phase
+        y_test = []
+        file = pd.read_csv(test, sep = ';', chunksize=1)
 
-            ### Prediction ###
-            splits = int(len(X_test1)/batch_size + 1)
-            y_pred = alg.predict(X_test1)
-            y_predP = alg.predict_proba(X_test1)[:,1]
+        y_pred = []
+        y_predP = []
+        y_predC = []
+        y_predCP = []
+
+        while True:
             try:
-                mets += np.round(tm.metrics(y_test, y_predP),4)
+                df = next(file)
+                df = df.fillna(" ")
+                df = df[df['text'].str.split().apply(len)>=10]
+                dflen = len(df)
+                while dflen == 0:
+                    df = next(file)
+                    df = df.fillna(" ")
+                    df = df[df['text'].str.split().apply(len)>=10]
+                    dflen = len(df)
+                df['text'].str.findall('\w{3,}').str.join(' ')
+                df['text'] = df['text'].str.replace("  "," ")
+                y_test.append(np.array([df['platform']])[0][0])
+                df = df.drop(['platform'],axis=1)
+                df = tm.processing(df, tfidfvectorizer=tfidfvectorizer, cv=cv)
+                y_pred.append(alg.predict(df)[0])
+                y_predP.append(alg.predict_proba(df)[:,1][0])
+                y_predC.append(algC.predict(df, new_threshold = False)[0])
+                y_predCP.append(algC.predict_proba(df)[:,1][0])
             except:
-                mets = np.round(tm.metrics(y_test, y_predP),4)
-            [_, FP1],[FN1,_] = tm.confusion_est(y_test, y_pred)
-            FP += FP1
-            FN += FN1
-            [_, FP1],[FN1,_] = tm.confusion_est(y_test, y_predP)
-            FPP += FP1
-            FNP += FN1
-            try:
-                posest += np.sum(y_pred)
-            except:
-                posest = np.sum(y_pred)
-            try:
-                posestP += np.sum(y_predP)
-            except:
-                posestP = np.sum(y_predP)
-            
-        if j == iters*2-2:
+                break
+        TP = np.sum(y_test)
+
+        y_test = np.array(y_test)
+        y_pred = np.array(y_pred)
+        y_predP = np.array(y_predP)
+        y_predC = np.array(y_predC)
+        y_predCP = np.array(y_predCP)
+
+        ### Prediction ###
+        try:
+            mets += np.round(tm.metrics(y_test, y_predP),4)
+        except:
+            mets = np.round(tm.metrics(y_test, y_predP),4)
+        [_, FP1],[FN1,_] = tm.confusion_est(y_test, y_pred)
+        FP += FP1
+        FN += FN1
+        [_, FP1],[FN1,_] = tm.confusion_est(y_test, y_predP)
+        FPP += FP1
+        FNP += FN1
+        try:
+            posest += np.sum(y_pred)
+        except:
+            posest = np.sum(y_pred)
+        try:
+            posestP += np.sum(y_predP)
+        except:
+            posestP = np.sum(y_predP)
+
+        try:
+            metsC += np.round(tm.metrics(y_test, y_predCP),4)
+        except:
+            metsC = np.round(tm.metrics(y_test,y_predCP), 4)
+        [_, FP1],[FN1,_] = tm.confusion_est(y_test, y_predC)
+        FPC += FP1
+        FNC += FN1
+        [_, FP1],[FN1,_] = tm.confusion_est(y_test, y_predCP)
+        FPCP += FP1
+        FNCP += FN1
+        try:
+            posestC += np.sum(y_predC)
+        except:
+            posestC = np.sum(y_predC)
+        try:
+            posestPC += np.sum(y_predCP)
+        except:
+            posestPC = np.sum(y_predCP)
+        
+        if j == iters-1:
             posest /= iters
             posestP /= iters
             if FP==FN:
@@ -162,33 +192,33 @@ for i in tqdm(scale, leave=False):
             mets /= iters
             newrow = np.concatenate([[str(i)],["No"],[TP],[posest],[bias],[posestP],[biasP], mets])
             dfsvm.loc[len(dfsvm)] = newrow
-        if j%2==1:
-            alg = SVC(kernel = 'linear', probability=True, class_weight={0:1,1:i})
-            alg = tm.apply_BayesCCal(alg, X_train1, y_train, density="test")
+        # if j%2==1:
+        #     alg = SVC(kernel = 'linear', probability=True, class_weight={0:1,1:i})
+        #     alg = tm.apply_BayesCCal(alg, X_train1, y_train, density="test")
 
-            ### Prediction (BayesCal) ###
-            splits = int(len(X_test1)/batch_size + 1)
-            y_pred = alg.predict(X_test1)
-            y_predP = alg.predict_proba(X_test1)[:,1]
-            try:
-                metsC += np.round(tm.metrics(y_test, y_predP),4)
-            except:
-                metsC = np.round(tm.metrics(y_test,y_predP), 4)
-            [_, FP1],[FN1,_] = tm.confusion_est(y_test, y_pred)
-            FPC += FP1
-            FNC += FN1
-            [_, FP1],[FN1,_] = tm.confusion_est(y_test, y_predP)
-            FPCP += FP1
-            FNCP += FN1
-            try:
-                posestC += np.sum(y_pred)
-            except:
-                posestC = np.sum(y_pred)
-            try:
-                posestPC += np.sum(y_predP)
-            except:
-                posestPC = np.sum(y_predP)
-        if j == 2*iters-1:
+        #     ### Prediction (BayesCal) ###
+        #     splits = int(len(X_test1)/batch_size + 1)
+        #     y_pred = alg.predict(X_test1)
+        #     y_predP = alg.predict_proba(X_test1)[:,1]
+        #     try:
+        #         metsC += np.round(tm.metrics(y_test, y_predP),4)
+        #     except:
+        #         metsC = np.round(tm.metrics(y_test,y_predP), 4)
+        #     [_, FP1],[FN1,_] = tm.confusion_est(y_test, y_pred)
+        #     FPC += FP1
+        #     FNC += FN1
+        #     [_, FP1],[FN1,_] = tm.confusion_est(y_test, y_predP)
+        #     FPCP += FP1
+        #     FNCP += FN1
+        #     try:
+        #         posestC += np.sum(y_pred)
+        #     except:
+        #         posestC = np.sum(y_pred)
+        #     try:
+        #         posestPC += np.sum(y_predP)
+        #     except:
+        #         posestPC = np.sum(y_predP)
+        
             posestC /= iters
             posestPC /= iters
             if FPC==FNC:
