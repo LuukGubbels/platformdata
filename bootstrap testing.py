@@ -118,7 +118,7 @@ for i in tqdm(range(iters), leave=False):
     Xpos_train = np.random.randint(0,poslen, poslen)
     ypos_train = ypos[Xpos_train]
     Xpos_train = X_train_pos.iloc[Xpos_train]
-    Xneg_train, _, yneg_train, _ = sklearn.model_selection.train_test_split(X_train_neg,yneg, test_size=0.2) #int(7*poslen/3))
+    Xneg_train, _, yneg_train, _ = sklearn.model_selection.train_test_split(X_train_neg,yneg, test_size=int(7*poslen/3)) #int(7*poslen/3))
 
     X_train = pd.concat([Xpos_train, Xneg_train])
     X_train, features, tfidfvectorizer, cv = tm.processing(X_train)
