@@ -12,8 +12,8 @@ argv = sys.argv[1:]
 # infiles = ["../platformSample_data2.csv", "../randomSample_purified_data2.csv"]
 train = "platformSample_data2.csv"
 test = "platformSample_data2.csv"
-outfile = '../Results/BootstrapResults.csv'
-iters = 5
+outfile = 'results/BootstrapResults.csv'
+iters = 1
 
 try:
     opts, args = getopt.getopt(argv,
@@ -79,28 +79,10 @@ from tqdm import tqdm
 dfmet = pd.DataFrame(columns = ["Iteration", "TP", "Pos. Est.","Bias", "sPCC", "Acc","AUROC","BA", "MCC"])
 dfcal = copy(dfmet)
 
-# frames = []
-# for i in infiles:
-#     df = pd.read_csv(i,sep=";")
-#     df = df.fillna(" ")
-#     df = df[df['text'].str.split().apply(len) >= 10]
-#     frames.append(df)
-# df3 = pd.concat(frames, sort=True)
-# del(frames)
-
-# char = 3
-# if char == 3:
-#     df3['text'].str.findall('\w{3,}').str.join(' ')
-
-# df3['text'] = df3['text'].str.replace("  ", " ")
-
 df_train = tm.preprocess(train)
-df_test = tm.preprocess(test)
 
 y_train = np.array([df_train['platform']])[0]
 X_train = df_train.drop(['platform'], axis=1)
-y_test = np.array([df_test['platform']])[0]
-X_test = df_test.drop(['platform'], axis=1)
 
 ###
 # Train test split section
@@ -122,22 +104,6 @@ neglen = len(X_train_neg)
 ypos = np.ones(poslen)
 yneg = np.zeros(neglen)
 
-
-# Xpos = X[y==1]
-# poslen = len(Xpos)
-# ypos = np.ones(poslen)
-# Xneg = X[y==0]
-# neglen = len(Xneg)
-# yneg = np.zeros(neglen)
-
-# Xpos, Xpos_test, ypos, ypos_test = sklearn.model_selection.train_test_split(Xpos, ypos, test_size=0.2)
-# poslen = len(Xpos)
-# Xneg, Xneg_test, yneg, yneg_test = sklearn.model_selection.train_test_split(Xneg, yneg, test_size=0.2)
-# neglen = len(Xneg)
-# X_test = pd.concat([Xpos_test,Xneg_test])
-# y_test = np.concatenate((ypos_test, yneg_test))
-TP = np.sum(y_test)
-
 y_pred = 0
 y_predP = 0
 y_predC = 0
@@ -145,8 +111,8 @@ y_predPC = 0
 
 print("Training and predicting:")
 for i in tqdm(range(iters), leave=False):
-    alg = SVC(kernel = 'linear', probability=True)
 
+    #Training Phase
 
     # Make a bootstrap sample (30/70 split)
     Xpos_train = np.random.randint(0,poslen, poslen)
@@ -157,53 +123,85 @@ for i in tqdm(range(iters), leave=False):
     X_train = pd.concat([Xpos_train, Xneg_train])
     X_train, features, tfidfvectorizer, cv = tm.processing(X_train)
     y_train = np.concatenate((np.ones(poslen),np.zeros(len(Xneg_train))))
-    X_test1 = tm.processing(X_test, tfidfvectorizer=tfidfvectorizer, cv=cv)
 
+    alg = SVC(kernel = 'linear', probability=True)
     alg.fit(X_train, y_train)
-    pred = alg.predict(X_test1)
-    try: 
-        y_pred += pred
-    except:
-        y_pred = pred
-    mets = tm.metrics(y_test, pred)
-    posest = np.sum(pred)
-    [_, FP],[FN,_] = tm.confusion_est(y_test, pred)
+    algC = tm.apply_BayesCCal(alg, X_train, y_train, density="test")
+    algC.fit(X_train, y_train)
+
+    #Testing Phase
+
+    line = 0
+    y_test = []
+    file = pd.read_csv(test, sep=';', chunksize=1)
+
+    y_pred = []
+    y_predP = []
+    y_predC = []
+    y_predCP = []
+    
+    while True:
+        # Load dataframe part
+        # preprocess
+        # process
+        # predict
+        # concat predictions
+        # delete part
+        try:
+
+            df = next(file)
+            line += 1
+            df = df.fillna(" ")
+            df = df[df['text'].str.split().apply(len)>=10]
+            dflen = len(df)
+            while dflen == 0:
+                df = next(file)
+                df = df.fillna(" ")
+                df = df[df['text'].str.split().apply(len)>=10]
+                dflen = len(df)
+            
+            df['text'].str.findall('\w{3,}').str.join(' ')
+            df['text'] = df['text'].str.replace("  "," ")
+            y_test.append(np.array([df['platform']])[0][0])
+            df = df.drop(['platform'], axis=1)
+            df = tm.processing(df, tfidfvectorizer=tfidfvectorizer, cv=cv)
+            y_pred.append(alg.predict(df)[0])
+            y_predP.append(alg.predict_proba(df)[:,1][0])
+            y_predC.append(algC.predict(df)[0])
+            y_predCP.append(algC.predict_proba(df)[:,1][0])
+        except:
+            break
+    print(y_test)
+    TP = np.sum(y_test)
+    y_pred = np.array(y_pred)
+    y_predP = np.array(y_predP)
+    y_predC = np.array(y_predC)
+    y_predCP = np.array(y_predCP)
+
+    mets = tm.metrics(y_test, y_pred)
+    posest = np.sum(y_pred)
+    [_, FP],[FN,_] = tm.confusion_est(y_test, y_pred)
     bias = (FP-FN)/len(y_test)
     mets = np.concatenate([[str(i)],[TP],[posest],[bias],mets])
     dfmet.loc[len(dfmet)] = mets
 
-    pred = alg.predict_proba(X_test1)[:,1]
-    try:
-        y_predP += pred
-    except:
-        y_predP = pred
-    mets = tm.metrics(y_test, (pred))
-    posest = np.sum(pred)
-    [_,FP],[FN,_] = tm.confusion_est(y_test, pred)
+    mets = tm.metrics(y_test, y_predP)
+    posest = np.sum(y_predP)
+    [_,FP],[FN,_] = tm.confusion_est(y_test, y_predP)
     bias = (FP-FN)/len(y_test)
     mets = np.concatenate([[str(i) + 'P'],[TP],[posest],[bias],mets])
     dfmet.loc[len(dfmet)] = mets
     
-    alg = tm.apply_BayesCCal(alg, X_train, y_train, density="test")
-    pred = alg.predict(X_test1)
-    try: 
-        y_predC += pred
-    except:
-        y_predC = pred
-    mets = tm.metrics(y_test, pred, threshold = alg.threshold)
-    posest = np.sum(pred)
-    [_, FP],[FN,_] = tm.confusion_est(y_test, pred)
+    mets = tm.metrics(y_test, y_predC, threshold = algC.threshold)
+    posest = np.sum(y_predC)
+    [_, FP],[FN,_] = tm.confusion_est(y_test, y_predC)
     bias = (FP-FN)/len(y_test)
     mets = np.concatenate([[str(i)],[TP],[posest],[bias],mets])
     dfcal.loc[len(dfcal)] = mets
-    pred = alg.predict_proba(X_test1)[:,1]
-    try:
-        y_predPC += pred
-    except:
-        y_predPC = pred
-    mets = tm.metrics(y_test, pred, threshold = alg.threshold)
-    posest = np.sum(pred)
-    [_, FP],[FN,_] = tm.confusion_est(y_test,pred)
+
+    mets = tm.metrics(y_test, y_predCP, threshold = algC.threshold)
+    posest = np.sum(y_predCP)
+    [_, FP],[FN,_] = tm.confusion_est(y_test,y_predCP)
     bias = (FP-FN)/len(y_test)
     mets = np.concatenate([[str(i) + 'P'],[TP],[posest],[bias],mets])
     dfcal.loc[len(dfcal)] = mets
@@ -212,7 +210,7 @@ for i in tqdm(range(iters), leave=False):
 print("Training and predicting: Done!")
 print()
 print("Processing metrics:")
-total_pred = [y_pred, y_predP, y_predC, y_predPC]
+total_pred = [y_pred, y_predP, y_predC, y_predCP]
 j=0
 for i in tqdm(total_pred, leave=False):
     i = i / iters
