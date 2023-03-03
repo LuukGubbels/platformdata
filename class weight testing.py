@@ -102,7 +102,7 @@ for i in tqdm(scale, leave=False):
 
         #Testing Phase
         y_test = []
-        file = pd.read_csv(test, sep = ';', chunksize=1)
+        file = pd.read_csv(test, sep = ',', chunksize=1)
 
         y_pred = []
         y_predP = []
