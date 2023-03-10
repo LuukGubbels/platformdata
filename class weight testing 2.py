@@ -11,7 +11,7 @@ if __name__ == "__main__":
     X_train_neg = '../platformSample_data2 processed.csv'
     X_test_pos = '../randomSample_purified_data2 processed.csv'
     X_test_neg = '../randomSample_purified_data2 processed.csv'
-    outfile = '../Results/ClassWeightResults.csv'
+    outfile = '../results/ClassWeightResults.csv'
     steps = 2
     iters = 5
 
@@ -26,8 +26,10 @@ if __name__ == "__main__":
         print('This file is used to benchmark linear SVMs using different class weights for positive cases in a logspace.')
         print()
         print('Options:')
-        print('-tr, --train:  Defines the file from which training data should be read. Input as a .csv file with extension.')
-        print('-te, --test:   Defines the file from which testing data should be read. Input as a .csv file with extension.')
+        print('-trp, --trpos:  Defines the file from which postive training data should be read. Input as a .csv file with extension.')
+        print('-trn, --trneg:  Defines the file from which negative training data should be read. Input as a .csv file with extension.')
+        print('-tep, --tepos:   Defines the file from which positive testing data should be read. Input as a .csv file with extension.')
+        print('-ten, --teneg:   Defines the file from which negative testing data should be read. Input as a .csv file with extension.')
         # print('-i, --ifile:   Defines the files from which files should be read. Input as a python list with file extension.')
         print('-o, --ofile:   Defines the file in which results should be stored. Input with a file extension.')
         print('-s, --steps:   Defines the number of steps should be taken in the logspace. Non-integer numbers will be rounded down.')
@@ -36,10 +38,14 @@ if __name__ == "__main__":
         print()
         sys.exit(2)    
     for opt, arg in opts:
-        if opt in ("-tr","--train"):
-            train = arg
-        elif opt in ("-te","--test"):
-            test = arg
+        if opt in ("-trp","--trpos"):
+            X_train_pos = arg
+        elif opt in ("-trn","--trneg"):
+            X_train_neg = arg
+        elif opt in ("-tep","--tepos"):
+            X_test_pos = arg
+        elif opt in ("-ten","--teneg"):
+            X_test_neg = arg
         # if opt in ("-i","--ifile"):
         #     infiles = arg.strip('][').split(',')
         elif opt in ("-o","--ofile"):
@@ -68,8 +74,8 @@ import sklearn.model_selection
 import sklearn.metrics
 import pandas as pd
 from sklearn.svm import SVC
-from Modules import thesis_module as tm
-from Modules import BayesCCal as bc
+import thesis_module as tm
+import BayesCCal as bc
 from tqdm import tqdm
 from copy import copy
 from multiprocessing import Lock, Value, Process
