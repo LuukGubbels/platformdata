@@ -6,6 +6,8 @@ import thesis_module as tm
 
 infile = "../randomSample_purified_data2.csv"
 
+argv = sys.argv[1:]
+
 try:
     opts, args = getopt.getopt(argv,"i",["infile="])
 except getopt.GetoptError:
