@@ -23,6 +23,8 @@ if '?' in args or 'help' in args:
 for opt, arg in opts:
     if opt in ("-i","--infile"):
         infile = arg.strip('][').split(',')
+    elif opt in ("-o","--outfile"):
+        outfile = arg
 
 frames = []
 for i in infile:
@@ -35,4 +37,4 @@ df["text"].str.findall('w{3,}').str.join(' ')
 df["text"] = df["text"].str.replace("  ", " ")
 df =  df.drop(["platform"], axis=1)
 
-df.to_csv(infile[:-4]+' processed.csv')
+df.to_csv(outfile+' processed.csv')
