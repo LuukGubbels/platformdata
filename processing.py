@@ -8,7 +8,7 @@ infile = "../randomSample_purified_data2.csv"
 
 try:
     opts, args = getopt.getopt(argv,"i",["infile="])
- except getopt.GetoptError:
+except getopt.GetoptError:
     sys.exit(2)
 if '?' in args or 'help' in args:
     print('Help for "processing.py"')
