@@ -24,7 +24,7 @@ for opt, arg in opts:
     if opt in ("-i","--infile"):
         infile = arg
 
-df = pd.read_csv(infile, sep = ';')
+df = pd.read_csv(infile, sep = ',')
 result = tm.preprocess(infile)
 result = result.drop(['platform'], axis=1)
 
