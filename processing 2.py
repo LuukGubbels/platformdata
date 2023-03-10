@@ -9,7 +9,7 @@ infile = "../randomSample_purified_data2.csv"
 argv = sys.argv[1:]
 
 try:
-    opts, args = getopt.getopt(argv,"i",["infile="])
+    opts, args = getopt.getopt(argv,"i:o",["infile=","outfile="])
 except getopt.GetoptError:
     raise getopt.GetoptError
     sys.exit(2)
