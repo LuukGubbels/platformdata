@@ -28,7 +28,7 @@ frames = []
 for i in infile:
     df = pd.read_csv(i, sep = ';')
     df = df.fillna(" ")
-    df = df[df["text"],str.split().apply(len)>=10]
+    df = df[df["text"].str.split().apply(len)>=10]
     frames.append(df)
 df = pd.concat(frames, sort=True)
 df["text"].str.findall('w{3,}').str.join(' ')
