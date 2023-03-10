@@ -17,8 +17,8 @@ if __name__ == "__main__":
 
     try:
         opts, args = getopt.getopt(argv,
-                "tr:te:o:s:n:",
-                ["train=","test=","ofile=","steps=","iters="])
+                "trp:trn:tep:ten:o:s:n:",
+                ["trpos=","trneg=","tepos=","teneg=","test=","ofile=","steps=","iters="])
     except getopt.GetoptError:
         sys.exit(2)
     if '?' in args or 'help' in args:
