@@ -11,6 +11,7 @@ argv = sys.argv[1:]
 try:
     opts, args = getopt.getopt(argv,"i",["infile="])
 except getopt.GetoptError:
+    raise getopt.GetoptError
     sys.exit(2)
 if '?' in args or 'help' in args:
     print('Help for "processing.py"')
@@ -33,7 +34,7 @@ for i in infile:
     df = df[df["text"].str.split().apply(len)>=10]
     frames.append(df)
 df = pd.concat(frames, sort=True)
-df["text"].str.findall('w{3,}').str.join(' ')
+df["text"].str.findall('w{\3,}').str.join(' ')
 df["text"] = df["text"].str.replace("  ", " ")
 df =  df.drop(["platform"], axis=1)
 
