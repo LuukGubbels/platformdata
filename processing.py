@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import sys, getopt
 sys.path.append('../')
-from Modules import thesis_module as tm
+import thesis_module as tm
 
 infile = "../randomSample_purified_data2.csv"
 
