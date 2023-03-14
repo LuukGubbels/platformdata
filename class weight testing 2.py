@@ -74,6 +74,7 @@ import sklearn.model_selection
 import sklearn.metrics
 import pandas as pd
 from sklearn.svm import SVC
+from sklearn.linear_model import LogisticRegression
 import thesis_module as tm
 import BayesCCal as bc
 from tqdm import tqdm
@@ -197,7 +198,7 @@ if __name__ == "__main__":
     scale = np.logspace(0.1,2,steps)
 
     for j in tqdm(scale, leave=False):
-        alg = SVC(probability=True, class_weight={0:1,1:j})
+        alg = LogisticRegression(class_weight={0:1,1:j})
         alg = bc.calibrator_binary(alg, density='test')
 
         X_train_pos1 = pd.read_csv(X_train_pos)
