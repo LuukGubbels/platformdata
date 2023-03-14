@@ -17,8 +17,8 @@ if __name__ == "__main__":
 
     try:
         opts, args = getopt.getopt(argv,
-                "tr:te:o:s:n:",
-                ["train=","test=","ofile=","steps=","iters="])
+                "trp:trn:tep:ten:o:s:n:",
+                ["trpos=","trneg","tepos","teneg","test=","ofile=","steps=","iters="])
     except getopt.GetoptError:
         sys.exit(2)
     if '?' in args or 'help' in args:
@@ -36,10 +36,14 @@ if __name__ == "__main__":
         print()
         sys.exit(2)    
     for opt, arg in opts:
-        if opt in ("-tr","--train"):
-            train = arg
-        elif opt in ("-te","--test"):
-            test = arg
+        if opt in ("-trp","--trpos"):
+            X_train_pos = arg
+        elif opt in ("-trn","--trneg"):
+            X_train_neg = arg
+        elif opt in ("-tep","--tepos"):
+            X_test_pos = arg
+        elif opt in ("-ten","--tenog"):
+            X_test_neg = arg
         # if opt in ("-i","--ifile"):
         #     infiles = arg.strip('][').split(',')
         elif opt in ("-o","--ofile"):
