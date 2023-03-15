@@ -200,11 +200,11 @@ if __name__ == "__main__":
 
     with open(X_train_neg) as f:
         tr_neg_n = sum(1 for line in f)
-    y_train_neg = np.zeros(int(tr_neg_n/10))
+    y_train_neg = np.zeros(int((len(y_train_pos)-1)*7/3))
 
     with open(X_test_pos) as f:
         te_pos_n = sum(1 for line in f)
-    y_test_pos = np.zeros(int(te_pos_n/10))
+    y_test_pos = np.ones(int(te_pos_n/10))
     
     with open(X_test_neg) as f:
         te_neg_n = sum(1 for line in f)
@@ -216,7 +216,7 @@ if __name__ == "__main__":
 
         processes = []
         for i in range(iters):
-            tr_neg = np.random.choice(range(1,tr_neg_n), size = int(tr_neg_n/10),replace=False)
+            tr_neg = np.random.choice(range(1,tr_neg_n), size = int((len(y_train_pos)-1)*7/3), replace=False)
             tr_neg = np.concatenate([tr_neg, [0]])
             X_train_neg1 = pd.read_csv(X_train_neg, skiprows=lambda i: i not in tr_neg)
             X_train = pd.concat([X_train_pos, X_train_neg1])
