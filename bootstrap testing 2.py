@@ -189,7 +189,7 @@ if __name__ == "__main__":
         X_train_pos1 = pd.read_csv(X_train_pos)
         X_train_pos1 = X_train_pos1.iloc[tr_pos-1]
         
-        tr_neg = np.random.choice(range(1,tr_neg), size = int((tr_pos_n-1)*7/3), replace = False)
+        tr_neg = np.random.choice(range(1,tr_neg_n), size = int((tr_pos_n-1)*7/3), replace = False)
 #         tr_neg = np.random.choice(range(1,tr_neg_n), size = int(tr_neg_n/10), replace = False)
         tr_neg = np.concatenate([tr_neg, [0]])
         X_train_neg1 = pd.read_csv(X_train_neg, skiprows= lambda i: i not in tr_neg)
