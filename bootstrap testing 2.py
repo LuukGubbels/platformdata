@@ -206,7 +206,7 @@ if __name__ == "__main__":
         processes.append(Machine(alg, i, X_train, y_train,
                                     X_test, y_test))
     batches = range(int((iters-1)/jobs+1))
-    for i in batches:
+    for i in tqdm(batches):
         for process in processes[i*jobs:(i+1)*jobs]:
             process.start()
         for process in processes[i*jobs:(i+1)*jobs]:
