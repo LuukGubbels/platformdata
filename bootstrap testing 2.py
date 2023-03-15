@@ -64,8 +64,8 @@ import sklearn.metrics
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from copy import copy
-from Modules import thesis_module as tm
-from Modules import BayesCCal as bc
+import thesis_module as tm
+import BayesCCal as bc
 from tqdm import tqdm
 from multiprocessing import Value, Process
 from time import time
@@ -123,7 +123,7 @@ class Machine(Process):
         y_train = np.concatenate([y_train_pos, y_train_neg])
         with open(self.X_test_pos) as f:
             te_pos_n = sum(1 for line in f) - 1
-        y_test_pos = np.ones(int(te_pos_n/10))
+        y_test_pos = np.ones(te_pos_n)
         with open(self.X_test_neg) as f:
             te_neg_n = sum(1 for line in f) - 1
         y_test_neg = np.zeros(int(te_neg_n/10))
@@ -135,8 +135,8 @@ class Machine(Process):
         X_train_pos1 = pd.read_csv(self.X_train_pos)
         X_train_pos1 = X_train_pos1.iloc[tr_pos-1]
         
-        # tr_neg = np.random.choice(range(1,tr_neg), size = int((len(tr_pos)-1)*7/3), replace = False)
-        tr_neg = np.random.choice(range(1,tr_neg_n), size = int(tr_neg_n/10), replace = False)
+        tr_neg = np.random.choice(range(1,tr_neg), size = int((tr_pos_n-1)*7/3), replace = False)
+        # tr_neg = np.random.choice(range(1,tr_neg_n), size = int(tr_neg_n/10), replace = False)
         tr_neg = np.concatenate([tr_neg, [0]])
         X_train_neg1 = pd.read_csv(self.X_train_neg, skiprows= lambda i: i not in tr_neg)
         X_train = pd.concat([X_train_pos1, X_train_neg1])
