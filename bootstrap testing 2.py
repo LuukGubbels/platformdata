@@ -168,17 +168,17 @@ if __name__ == "__main__":
     alg = bc.calibrator_binary(alg, density = 'test')
 
     with open(X_train_pos) as f:
-        tr_pos_n = sum(1 for line in f)
+        tr_pos_n = sum(1 for line in f) - 1
     y_train_pos = np.ones(tr_pos_n)
     with open(X_train_neg) as f:
-        tr_neg_n = sum(1 for line in f)
+        tr_neg_n = sum(1 for line in f) - 1
     y_train_neg = np.zeros(tr_neg_n)
     y_train = np.concatenate([y_train_pos, y_train_neg])
     with open(X_test_pos) as f:
-        te_pos_n = sum(1 for line in f)
+        te_pos_n = sum(1 for line in f) - 1
     y_test_pos = np.ones(te_pos_n)
     with open(X_test_neg) as f:
-        te_neg_n = sum(1 for line in f)
+        te_neg_n = sum(1 for line in f) - 1
     y_test_neg = np.zeros(te_neg_n)
     y_test = np.concatenate([y_test_pos, y_test_neg])
 
@@ -189,15 +189,13 @@ if __name__ == "__main__":
         X_train_pos1 = pd.read_csv(X_train_pos)
         X_train_pos1 = X_train_pos1.iloc[tr_pos-1]
         
-        with open(X_train_neg) as f:
-            tr_neg = sum(1 for line in f)
-        # tr_neg = np.random.choice(range(1,tr_neg), size = int((len(tr_pos)-1)*7/3), replace = False)
-        tr_neg = np.random.choice(range(1,tr_neg_n), size = int(tr_neg_n/10), replace = False)
+        tr_neg = np.random.choice(range(1,tr_neg), size = int((tr_pos_n-1)*7/3), replace = False)
+#         tr_neg = np.random.choice(range(1,tr_neg_n), size = int(tr_neg_n/10), replace = False)
         tr_neg = np.concatenate([tr_neg, [0]])
         X_train_neg1 = pd.read_csv(X_train_neg, skiprows= lambda i: i not in tr_neg)
         X_train = pd.concat([X_train_pos1, X_train_neg1])
 
-        te_pos = np.random.choice(range(1,te_pos_n), size = te_pos_n, replace = False)
+        te_pos = np.random.choice(range(1,te_pos_n), size = int(te_pos_n/10), replace = False)
         te_pos = np.concatenate([te_pos,[0]])
         X_test_pos1 = pd.read_csv(X_test_pos, skiprows = lambda i: i not in te_pos)
         te_neg = np.random.choice(range(1,te_neg_n), size=int(te_neg_n/10), replace = False)
