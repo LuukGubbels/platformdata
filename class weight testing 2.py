@@ -42,7 +42,7 @@ if __name__ == "__main__":
             X_train_neg = arg
         elif opt in ("-tep","--tepos"):
             X_test_pos = arg
-        elif opt in ("-ten","--tenog"):
+        elif opt in ("-ten","--teneg"):
             X_test_neg = arg
         # if opt in ("-i","--ifile"):
         #     infiles = arg.strip('][').split(',')
