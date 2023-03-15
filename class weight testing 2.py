@@ -227,7 +227,7 @@ if __name__ == "__main__":
             X_test_pos1 = pd.read_csv(X_test_pos, skiprows = lambda i: i not in te_pos)
             te_neg = np.random.choice(range(1,te_neg_n), size=int(te_neg_n/10), replace=False)
             te_neg = np.concatenate([te_neg,[0]])
-            X_test_neg1 = pd.read_csV(X_test_neg, skiprows = lambda i: i not in te_neg)
+            X_test_neg1 = pd.read_csv(X_test_neg, skiprows = lambda i: i not in te_neg)
             X_test = pd.concat([X_test_pos1, X_test_neg1])
             y_test = np.concatenate([y_test_pos, y_test_neg])            
 
