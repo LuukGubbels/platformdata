@@ -183,7 +183,7 @@ if __name__ == "__main__":
     y_test = np.concatenate([y_test_pos, y_test_neg])
 
     processes = []
-    for i in range(iters):
+    for i in tqdm(range(iters), desc = 'Creating sets'):
         tr_pos = np.random.choice(range(1,tr_pos_n), size = tr_pos_n, replace = True)
         # tr_pos  =np.concatenate([tr_pos, [0]])
         X_train_pos1 = pd.read_csv(X_train_pos)
@@ -206,7 +206,7 @@ if __name__ == "__main__":
         processes.append(Machine(alg, i, X_train, y_train,
                                     X_test, y_test))
     batches = range(int((iters-1)/jobs+1))
-    for i in tqdm(batches):
+    for i in tqdm(batches, desc = 'Fitting/Predicting'):
         for process in processes[i*jobs:(i+1)*jobs]:
             process.start()
         for process in processes[i*jobs:(i+1)*jobs]:
