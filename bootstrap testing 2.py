@@ -23,10 +23,9 @@ if __name__ == "__main__":
         print('This file is used to benchmark linear SVMs using bootstrapping.')
         print()
         print('Options:')
-        print('-trp, --trpos:  Defines the file from which positive training data should be read. Input as a .csv file with extension.')
-        print('-trn, --trneg:  Defines the file from which negative training data should be read. Input as a .csv file with extension.')
-        print('-tep, --tepos:  Defines the file from which positive test data should be read. Input as a .csv file with extension.')
-        print('-ten, --teneg:  Defines the file from which negative test data should be read. Input as a .csv file with extension.')
+        print('-tr, --train:  Defines the file from which training data should be read. Input as a .csv file with extension.')
+        print('-te, --test:   Defines the file from which testing data should be read. Input as a .csv file with extension.')
+        # print('-i, --ifile:   Defines the files from which files should be read. Input as a python list with file extension.')
         print('-o, --ofile:   Defines the file in which results should be stored. Input with a file extension.')
         print('-n, --iters:   Defines the number of machines / bootstrap samples should be used. Non-integer numbers will be rounded down.')
         print('-j, --jobs:    Defines the number of jobs should be used.')
@@ -65,22 +64,22 @@ import sklearn.metrics
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from copy import copy
-import thesis_module as tm
-import BayesCCal as bc
+from Modules import thesis_module as tm
+from Modules import BayesCCal as bc
 from tqdm import tqdm
 from multiprocessing import Value, Process
 from time import time
 
 class Machine(Process):
-    def __init__(self, alg, id, X_train, y_train, X_test, y_test):
+    def __init__(self, alg, id, X_train_pos, X_train_neg, X_test_pos, X_test_neg):
         Process.__init__(self)
         self.alg = alg
         self.id = id
-        self.X_train = X_train
-        self.y_train = y_train
-        self.X_test = X_test
-        self.y_test = y_test
-        self.TP = np.sum(y_test)
+        self.X_train_pos = X_train_pos
+        self.X_train_neg = X_train_neg
+        self.X_test_pos = X_test_pos
+        self.X_test_neg = X_test_neg
+        self.TP = Value('f',0)
 
         self.posest = Value('f',0)
         self.bias = Value('f',0)
@@ -115,98 +114,133 @@ class Machine(Process):
         self.AUROC_CP = Value('f',0)
 
     def run(self):
-        self.X_train, _, tfidfvectorizer, cv = tm.processing(self.X_train)
+        with open(self.X_train_pos) as f:
+            tr_pos_n = sum(1 for line in f) - 1
+        y_train_pos = np.ones(tr_pos_n)
+        with open(self.X_train_neg) as f:
+            tr_neg_n = sum(1 for line in f) - 1
+        y_train_neg = np.zeros(int(tr_neg_n/10))
+        y_train = np.concatenate([y_train_pos, y_train_neg])
+        with open(self.X_test_pos) as f:
+            te_pos_n = sum(1 for line in f) - 1
+        y_test_pos = np.ones(int(te_pos_n/10))
+        with open(self.X_test_neg) as f:
+            te_neg_n = sum(1 for line in f) - 1
+        y_test_neg = np.zeros(int(te_neg_n/10))
+        y_test = np.concatenate([y_test_pos, y_test_neg])
 
-        self.alg.fit(self.X_train,self.y_train)
-        self.X_test = tm.processing(self.X_test, tfidfvectorizer=tfidfvectorizer, cv=cv)
+        self.TP.value = np.sum(y_test)
         
-        y_pred = self.alg.predict(self.X_test, new_threshold = False, cal = False)
+        tr_pos = np.random.choice(range(1,tr_pos_n), size = tr_pos_n, replace = True)
+        X_train_pos1 = pd.read_csv(self.X_train_pos)
+        X_train_pos1 = X_train_pos1.iloc[tr_pos-1]
+        
+        # tr_neg = np.random.choice(range(1,tr_neg), size = int((len(tr_pos)-1)*7/3), replace = False)
+        tr_neg = np.random.choice(range(1,tr_neg_n), size = int(tr_neg_n/10), replace = False)
+        tr_neg = np.concatenate([tr_neg, [0]])
+        X_train_neg1 = pd.read_csv(self.X_train_neg, skiprows= lambda i: i not in tr_neg)
+        X_train = pd.concat([X_train_pos1, X_train_neg1])
+
+        te_pos = np.random.choice(range(1,te_pos_n), size = int(te_pos_n/10), replace = False)
+        te_pos = np.concatenate([te_pos,[0]])
+        X_test_pos1 = pd.read_csv(self.X_test_pos, skiprows = lambda i: i not in te_pos)
+        te_neg = np.random.choice(range(1,te_neg_n), size=int(te_neg_n/10), replace = False)
+        te_neg = np.concatenate([te_neg,[0]])
+        X_test_neg1 = pd.read_csv(self.X_test_neg, skiprows = lambda i: i not in te_neg)
+        X_test = pd.concat([X_test_pos1, X_test_neg1])      
+
+        X_train, _, tfidfvectorizer, cv = tm.processing(X_train)
+
+        self.alg.fit(X_train,y_train)
+        X_test = tm.processing(X_test, tfidfvectorizer=tfidfvectorizer, cv=cv)
+        
+        y_pred = self.alg.predict(X_test, new_threshold = False, cal = False)
         threshold = 0.5
         self.posest.value = np.sum(y_pred)
-        [_, FP], [FN, _] = tm.confusion_est(self.y_test, y_pred)
-        self.bias.value = (FP-FN)/len(self.y_test)
-        self.sPCC.value = np.round(tm.rho(self.y_test, y_pred),4)
-        self.acc.value = np.round(sklearn.metrics.accuracy_score(self.y_test, y_pred>=threshold), 4)            
-        self.BA.value = np.round(sklearn.metrics.balanced_accuracy_score(self.y_test, y_pred>=threshold),4)
-        self.MCC.value = np.round(sklearn.metrics.matthews_corrcoef(self.y_test, y_pred>=threshold),4)
-        self.AUROC.value = np.round(sklearn.metrics.roc_auc_score(self.y_test, y_pred),4)
+        [_, FP], [FN, _] = tm.confusion_est(y_test, y_pred)
+        self.bias.value = (FP-FN)/len(y_test)
+        self.sPCC.value = np.round(tm.rho(y_test, y_pred),4)
+        self.acc.value = np.round(sklearn.metrics.accuracy_score(y_test, y_pred>=threshold), 4)            
+        self.BA.value = np.round(sklearn.metrics.balanced_accuracy_score(y_test, y_pred>=threshold),4)
+        self.MCC.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_pred>=threshold),4)
+        self.AUROC.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_pred),4)
 
-        y_pred = self.alg.predict_proba(self.X_test, cal = False)[:,1]
+        y_pred = self.alg.predict_proba(X_test, cal = False)[:,1]
         self.posest_P.value = np.sum(y_pred)
-        [_, FP], [FN, _] = tm.confusion_est(self.y_test, y_pred)
-        self.bias_P.value = (FP-FN)/len(self.y_test)
-        self.sPCC_P.value = np.round(tm.rho(self.y_test, y_pred),4)
-        self.acc_P.value = np.round(sklearn.metrics.accuracy_score(self.y_test, y_pred>=threshold), 4)            
-        self.BA_P.value = np.round(sklearn.metrics.balanced_accuracy_score(self.y_test, y_pred>=threshold),4)
-        self.MCC_P.value = np.round(sklearn.metrics.matthews_corrcoef(self.y_test, y_pred>=threshold),4)
-        self.AUROC_P.value = np.round(sklearn.metrics.roc_auc_score(self.y_test, y_pred),4)
+        [_, FP], [FN, _] = tm.confusion_est(y_test, y_pred)
+        self.bias_P.value = (FP-FN)/len(y_test)
+        self.sPCC_P.value = np.round(tm.rho(y_test, y_pred),4)
+        self.acc_P.value = np.round(sklearn.metrics.accuracy_score(y_test, y_pred>=threshold), 4)            
+        self.BA_P.value = np.round(sklearn.metrics.balanced_accuracy_score(y_test, y_pred>=threshold),4)
+        self.MCC_P.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_pred>=threshold),4)
+        self.AUROC_P.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_pred),4)
 
-        y_pred = self.alg.predict(self.X_test, new_threshold = False, cal = True)
+        y_pred = self.alg.predict(X_test, new_threshold = False, cal = True)
         threshold = self.alg.threshold
         self.posest_C.value = np.sum(y_pred)
-        [_, FP], [FN, _] = tm.confusion_est(self.y_test, y_pred)
-        self.bias_C.value = (FP-FN)/len(self.y_test)
-        self.sPCC_C.value = np.round(tm.rho(self.y_test, y_pred),4)
-        self.acc_C.value = np.round(sklearn.metrics.accuracy_score(self.y_test, y_pred>=threshold), 4)            
-        self.BA_C.value = np.round(sklearn.metrics.balanced_accuracy_score(self.y_test, y_pred>=threshold),4)
-        self.MCC_C.value = np.round(sklearn.metrics.matthews_corrcoef(self.y_test, y_pred>=threshold),4)
-        self.AUROC_C.value = np.round(sklearn.metrics.roc_auc_score(self.y_test, y_pred),4)
+        [_, FP], [FN, _] = tm.confusion_est(y_test, y_pred)
+        self.bias_C.value = (FP-FN)/len(y_test)
+        self.sPCC_C.value = np.round(tm.rho(y_test, y_pred),4)
+        self.acc_C.value = np.round(sklearn.metrics.accuracy_score(y_test, y_pred>=threshold), 4)            
+        self.BA_C.value = np.round(sklearn.metrics.balanced_accuracy_score(y_test, y_pred>=threshold),4)
+        self.MCC_C.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_pred>=threshold),4)
+        self.AUROC_C.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_pred),4)
 
-        y_pred = self.alg.predict_proba(self.X_test, cal = True)[:,1]
+        y_pred = self.alg.predict_proba(X_test, cal = True)[:,1]
         self.posest_CP.value = np.sum(y_pred)
-        [_, FP], [FN, _] = tm.confusion_est(self.y_test, y_pred)
-        self.bias_CP.value = (FP-FN)/len(self.y_test)
-        self.sPCC_CP.value = np.round(tm.rho(self.y_test, y_pred),4)
-        self.acc_CP.value = np.round(sklearn.metrics.accuracy_score(self.y_test, y_pred>=threshold), 4)            
-        self.BA_CP.value = np.round(sklearn.metrics.balanced_accuracy_score(self.y_test, y_pred>=threshold),4)
-        self.MCC_CP.value = np.round(sklearn.metrics.matthews_corrcoef(self.y_test, y_pred>=threshold),4)
-        self.AUROC_CP.value = np.round(sklearn.metrics.roc_auc_score(self.y_test, y_pred),4)       
+        [_, FP], [FN, _] = tm.confusion_est(y_test, y_pred)
+        self.bias_CP.value = (FP-FN)/len(y_test)
+        self.sPCC_CP.value = np.round(tm.rho(y_test, y_pred),4)
+        self.acc_CP.value = np.round(sklearn.metrics.accuracy_score(y_test, y_pred>=threshold), 4)            
+        self.BA_CP.value = np.round(sklearn.metrics.balanced_accuracy_score(y_test, y_pred>=threshold),4)
+        self.MCC_CP.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_pred>=threshold),4)
+        self.AUROC_CP.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_pred),4)       
 
 if __name__ == "__main__":
     start = time()
     alg = LogisticRegression()
     alg = bc.calibrator_binary(alg, density = 'test')
 
-    with open(X_train_pos) as f:
-        tr_pos_n = sum(1 for line in f) - 1
-    y_train_pos = np.ones(tr_pos_n)
-    with open(X_train_neg) as f:
-        tr_neg_n = sum(1 for line in f) - 1
-    y_train_neg = np.zeros(tr_neg_n)
-    y_train = np.concatenate([y_train_pos, y_train_neg])
-    with open(X_test_pos) as f:
-        te_pos_n = sum(1 for line in f) - 1
-    y_test_pos = np.ones(te_pos_n)
-    with open(X_test_neg) as f:
-        te_neg_n = sum(1 for line in f) - 1
-    y_test_neg = np.zeros(te_neg_n)
-    y_test = np.concatenate([y_test_pos, y_test_neg])
+    # with open(X_train_pos) as f:
+    #     tr_pos_n = sum(1 for line in f) - 1
+    # y_train_pos = np.ones(tr_pos_n)
+    # with open(X_train_neg) as f:
+    #     tr_neg_n = sum(1 for line in f) - 1
+    # y_train_neg = np.zeros(tr_neg_n)
+    # y_train = np.concatenate([y_train_pos, y_train_neg])
+    # with open(X_test_pos) as f:
+    #     te_pos_n = sum(1 for line in f) - 1
+    # y_test_pos = np.ones(te_pos_n)
+    # with open(X_test_neg) as f:
+    #     te_neg_n = sum(1 for line in f) - 1
+    # y_test_neg = np.zeros(te_neg_n)
+    # y_test = np.concatenate([y_test_pos, y_test_neg])
 
-    processes = []
-    for i in tqdm(range(iters), desc = 'Creating sets'):
-        tr_pos = np.random.choice(range(1,tr_pos_n), size = tr_pos_n, replace = True)
-        # tr_pos  =np.concatenate([tr_pos, [0]])
-        X_train_pos1 = pd.read_csv(X_train_pos)
-        X_train_pos1 = X_train_pos1.iloc[tr_pos-1]
+    # processes = []
+    # for i in range(iters):
+        # tr_pos = np.random.choice(range(1,tr_pos_n), size = tr_pos_n, replace = True)
+        # # tr_pos  =np.concatenate([tr_pos, [0]])
+        # X_train_pos1 = pd.read_csv(X_train_pos)
+        # X_train_pos1 = X_train_pos1.iloc[tr_pos-1]
         
-        tr_neg = np.random.choice(range(1,tr_neg_n), size = int((tr_pos_n-1)*7/3), replace = False)
-#         tr_neg = np.random.choice(range(1,tr_neg_n), size = int(tr_neg_n/10), replace = False)
-        tr_neg = np.concatenate([tr_neg, [0]])
-        X_train_neg1 = pd.read_csv(X_train_neg, skiprows= lambda i: i not in tr_neg)
-        X_train = pd.concat([X_train_pos1, X_train_neg1])
+        # # tr_neg = np.random.choice(range(1,tr_neg), size = int((len(tr_pos)-1)*7/3), replace = False)
+        # tr_neg = np.random.choice(range(1,tr_neg_n), size = int(tr_neg_n/10), replace = False)
+        # tr_neg = np.concatenate([tr_neg, [0]])
+        # X_train_neg1 = pd.read_csv(X_train_neg, skiprows= lambda i: i not in tr_neg)
+        # X_train = pd.concat([X_train_pos1, X_train_neg1])
 
-        te_pos = np.random.choice(range(1,te_pos_n), size = int(te_pos_n/10), replace = False)
-        te_pos = np.concatenate([te_pos,[0]])
-        X_test_pos1 = pd.read_csv(X_test_pos, skiprows = lambda i: i not in te_pos)
-        te_neg = np.random.choice(range(1,te_neg_n), size=int(te_neg_n/10), replace = False)
-        te_neg = np.concatenate([te_neg,[0]])
-        X_test_neg1 = pd.read_csv(X_test_neg, skiprows = lambda i: i not in te_neg)
-        X_test = pd.concat([X_test_pos1, X_test_neg1])
+        # te_pos = np.random.choice(range(1,te_pos_n), size = int(te_pos_n/10), replace = False)
+        # te_pos = np.concatenate([te_pos,[0]])
+        # X_test_pos1 = pd.read_csv(X_test_pos, skiprows = lambda i: i not in te_pos)
+        # te_neg = np.random.choice(range(1,te_neg_n), size=int(te_neg_n/10), replace = False)
+        # te_neg = np.concatenate([te_neg,[0]])
+        # X_test_neg1 = pd.read_csv(X_test_neg, skiprows = lambda i: i not in te_neg)
+        # X_test = pd.concat([X_test_pos1, X_test_neg1])
 
-        processes.append(Machine(alg, i, X_train, y_train,
-                                    X_test, y_test))
+    processes = [Machine(alg, i, X_train_pos, X_train_neg,
+                                    X_test_pos, X_test_neg) for i in range(iters)]
     batches = range(int((iters-1)/jobs+1))
-    for i in tqdm(batches, desc = 'Fitting/Predicting'):
+    for i in tqdm(batches):
         for process in processes[i*jobs:(i+1)*jobs]:
             process.start()
         for process in processes[i*jobs:(i+1)*jobs]:
@@ -222,7 +256,7 @@ if __name__ == "__main__":
 
 
         for process in processes[i*jobs:(i+1)*jobs]:
-            TP += np.array([process.TP, process.TP, process.TP, process.TP])
+            TP += np.array([process.TP.value, process.TP.value, process.TP.value, process.TP.value])
             posest += np.array([process.posest.value, process.posest_P.value, process.posest_C.value, process.posest_CP.value])
             bias += np.array([process.bias.value, process.bias_P.value, process.bias_C.value, process.bias_CP.value])
             sPCC += np.array([process.sPCC.value, process.sPCC_P.value, process.sPCC_C.value, process.sPCC_CP.value])
