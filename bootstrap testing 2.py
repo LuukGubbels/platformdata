@@ -119,14 +119,14 @@ class Machine(Process):
         y_train_pos = np.ones(tr_pos_n)
         with open(self.X_train_neg) as f:
             tr_neg_n = sum(1 for line in f) - 1
-        y_train_neg = np.zeros(int(tr_neg_n/10))
+        y_train_neg = np.zeros(int((tr_pos_n-1)*7/3))
         y_train = np.concatenate([y_train_pos, y_train_neg])
         with open(self.X_test_pos) as f:
             te_pos_n = sum(1 for line in f) - 1
-        y_test_pos = np.ones(te_pos_n)
+        y_test_pos = np.ones(int(te_pos_n/10))
         with open(self.X_test_neg) as f:
             te_neg_n = sum(1 for line in f) - 1
-        y_test_neg = np.zeros(int((tr_pos_n-1)*7/3))
+        y_test_neg = np.zeros(int(te_neg_n/10))
         y_test = np.concatenate([y_test_pos, y_test_neg])
 
         self.TP.value = np.sum(y_test)
