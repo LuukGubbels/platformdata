@@ -10,14 +10,15 @@ if __name__ == "__main__":
     X_test_pos = '../randomSample_purified_data2 processed.csv'
     X_test_neg = '../randomSample_purified_data2 processed.csv'
     outfile = '../Results/EnsembleResults.csv'
-    iters = 2
+    iters = 3
     size = 3
     avg = 2
+    jobs = 2
     
     try:
         opts, args = getopt.getopt(argv,
-                "trp:trn:tep:ten:o:n:s:a:",
-                ["trpos=","trneg=","tepos=","teneg=","test=","ofile=","iters=","size=","avg="])
+                "trp:trn:tep:ten:o:n:s:a:j:",
+                ["trpos=","trneg=","tepos=","teneg=","test=","ofile=","iters=","size=","avg=","jobs="])
     except getopt.GetoptError:
         sys.exit(2)
     if '?' in args or 'help' in args:
@@ -53,6 +54,8 @@ if __name__ == "__main__":
             size = int(arg)
         elif opt in ("-a","--avg"):
             avg = int(arg)
+        elif opt in ("-j","--jobs"):
+            avg = int(arg)
 
 # take 80/20 split on training sets per machine
 # use 0.2 validation set to give weight to machine
@@ -72,6 +75,7 @@ import pandas as pd
 from copy import copy
 import sklearn as sk
 from sklearn.linear_model import LogisticRegression
+from tqdm import tqdm
 from Modules import thesis_module as tm
 from Modules import BayesCCal as bc
 from multiprocessing import Value, Process
@@ -261,25 +265,31 @@ if __name__ == "__main__":
     y_test = np.concatenate([y_test_pos, y_test_neg])
 
     processes = []
-    for i in range(iters):
-        tr_neg = np.random.choice(range(1,tr_neg_n), size=int(tr_neg_n/10), replace=False)
-        tr_neg = np.concatenate([tr_neg,[0]])
-        X_train_neg1 = pd.read_csv(X_train_neg, skiprows=lambda i: i not in tr_neg)
-        X_train = pd.concat([X_train_pos, X_train_neg1])
+    batches = range(int((iters-1)/jobs+1))
+    l = copy(iters)
+    for j in tqdm(batches):
+        k = min(jobs, l)
+        while k > 0:
+            tr_neg = np.random.choice(range(1,tr_neg_n), size=int(tr_neg_n/10), replace=False)
+            tr_neg = np.concatenate([tr_neg,[0]])
+            X_train_neg1 = pd.read_csv(X_train_neg, skiprows=lambda i: i not in tr_neg)
+            X_train = pd.concat([X_train_pos, X_train_neg1])
 
-        te_pos = np.random.choice(range(1,te_pos_n), size=int(te_pos_n/10), replace = False)
-        te_pos = np.concatenate([te_pos, [0]])
-        X_test_pos1 = pd.read_csv(X_test_pos, skiprows=lambda i: i not in te_pos)
-        te_neg = np.random.choice(range(1,te_neg_n), size = int(te_neg_n/10), replace = False)
-        te_neg = np.concatenate([te_neg, [0]])
-        X_test_neg1 = pd.read_csv(X_test_neg, skiprows = lambda i: i not in te_neg)
-        X_test = pd.concat([X_test_pos1, X_test_neg1])
+            te_pos = np.random.choice(range(1,te_pos_n), size=int(te_pos_n/10), replace = False)
+            te_pos = np.concatenate([te_pos, [0]])
+            X_test_pos1 = pd.read_csv(X_test_pos, skiprows=lambda i: i not in te_pos)
+            te_neg = np.random.choice(range(1,te_neg_n), size = int(te_neg_n/10), replace = False)
+            te_neg = np.concatenate([te_neg, [0]])
+            X_test_neg1 = pd.read_csv(X_test_neg, skiprows = lambda i: i not in te_neg)
+            X_test = pd.concat([X_test_pos1, X_test_neg1])
 
-        process = Machine(alg, i, X_train, y_train, X_test, y_test, size, avg)
-        processes.append(process)
-        process.start()
-    for process in processes:
-        process.join()
+            process = Machine(alg, k, X_train, y_train, X_test, y_test, size, avg)
+            processes.append(process)
+            process.start()
+            k = k-1
+        for process in processes[j*jobs:(j+1)*jobs]:
+            process.join()
+        l = l - jobs
     TP = np.array([0,0,0,0], dtype='float64')
     posest = np.array([0,0,0,0], dtype='float64')
     bias = np.array([0,0,0,0], dtype='float64')
