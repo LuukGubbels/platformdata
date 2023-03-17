@@ -171,7 +171,7 @@ class Machine(Process):
 
         weights = np.zeros((len(self.X_test),self.size))
         for _ in range(self.avg):
-            test_tfidf, test_feats, _, _ = tm.processing(self.X_test, mindf=1)
+            test_tfidf, test_feats, _, _ = tm.processing(self.X_test, mindf=50)
             test_feats = np.append(test_feats,'')
             indices = (test_tfidf!=0)*1
             for i in range(len(indices)):
