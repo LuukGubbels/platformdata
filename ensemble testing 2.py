@@ -76,8 +76,8 @@ from copy import copy
 import sklearn as sk
 from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
-from Modules import thesis_module as tm
-from Modules import BayesCCal as bc
+import thesis_module as tm
+import BayesCCal as bc
 from multiprocessing import Value, Process
 from time import time
 
