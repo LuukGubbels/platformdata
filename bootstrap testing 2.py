@@ -64,8 +64,8 @@ import sklearn.metrics
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from copy import copy
-from Modules import thesis_module as tm
-from Modules import BayesCCal as bc
+import thesis_module as tm
+import BayesCCal as bc
 from tqdm import tqdm
 from multiprocessing import Value, Process, Manager
 from time import time
@@ -84,39 +84,6 @@ class Machine(Process):
         self.y_predP = y_predP
         self.y_predC = y_predC
         self.y_predCP = y_predCP
-        self.TP = Value('f',0)
-
-        self.posest = Value('f',0)
-        self.bias = Value('f',0)
-        self.sPCC = Value('f',0)
-        self.acc = Value('f',0)
-        self.BA = Value('f',0)
-        self.MCC = Value('f',0)
-        self.AUROC = Value('f',0)
-
-        self.posest_P = Value('f',0)
-        self.bias_P = Value('f',0)
-        self.sPCC_P = Value('f',0)
-        self.acc_P = Value('f',0)
-        self.BA_P = Value('f',0)
-        self.MCC_P = Value('f',0)
-        self.AUROC_P = Value('f',0)
-
-        self.posest_C = Value('f',0)
-        self.bias_C = Value('f',0)
-        self.sPCC_C = Value('f',0)
-        self.acc_C = Value('f',0)
-        self.BA_C = Value('f',0)
-        self.MCC_C = Value('f',0)
-        self.AUROC_C = Value('f',0)
-
-        self.posest_CP = Value('f',0)
-        self.bias_CP = Value('f',0)
-        self.sPCC_CP = Value('f',0)
-        self.acc_CP = Value('f',0)
-        self.BA_CP = Value('f',0)
-        self.MCC_CP = Value('f',0)
-        self.AUROC_CP = Value('f',0)
 
     def run(self):
         with open(self.X_train_pos) as f:
