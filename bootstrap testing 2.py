@@ -91,8 +91,6 @@ class Machine(Process):
         y_train_pos = np.ones(tr_pos_n)
         with open(self.X_train_neg) as f:
             tr_neg_n = sum(1 for line in f) - 1
-        y_train_neg = np.zeros(int(tr_neg_n/10))
-        y_train = np.concatenate([y_train_pos, y_train_neg])
         # with open(self.X_test_pos) as f:
         #     te_pos_n = sum(1 for line in f) - 1
         # y_test_pos = np.ones(int(te_pos_n/10))
@@ -106,10 +104,12 @@ class Machine(Process):
         X_train_pos1 = X_train_pos1.iloc[tr_pos-1]
         
         tr_neg = np.random.choice(range(1,tr_neg_n), size = int((tr_pos_n-1)*7/3), replace = False)
+        y_train_neg = np.zeros(len(tr_neg))
 #         tr_neg = np.random.choice(range(1,tr_neg_n), size = int(tr_neg_n/10), replace = False)
         tr_neg = np.concatenate([tr_neg, [0]])
         X_train_neg1 = pd.read_csv(self.X_train_neg, skiprows= lambda i: i not in tr_neg)
         X_train = pd.concat([X_train_pos1, X_train_neg1])
+        y_train = np.concatenate([y_train_pos, y_train_neg])
 
         # te_pos = np.random.choice(range(1,te_pos_n), size = int(te_pos_n/10), replace = False)
         # te_pos = np.concatenate([te_pos,[0]])
