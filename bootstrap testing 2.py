@@ -312,6 +312,6 @@ if __name__ == "__main__":
     for j in range(4):
         mets = np.array([bayes[j],proba[j],TP[j],posest[j],bias[j],sPCC[j],acc[j],BA[j],MCC[j],AUROC[j]])
         dfmets.loc[len(dfmets)] = mets
-    dfmets.to_csv(outfile[:-4]+' '+str(i)+'.csv')
+    dfmets.to_csv(outfile)
     
     print(time()-start)
