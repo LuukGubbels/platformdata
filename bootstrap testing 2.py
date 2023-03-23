@@ -234,6 +234,8 @@ if __name__ == "__main__":
             process.start()
         for process in processes[i*jobs:(i+1)*jobs]:
             process.join()
+        for process in processes[i*jobs:(i+1)*jobs]:
+            process.terminate()
     TP = np.sum(y_test)
     TP = np.array([TP,TP,TP,TP], dtype='float64')
     posest = np.array([0,0,0,0], dtype='float64')
