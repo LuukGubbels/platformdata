@@ -279,9 +279,9 @@ if __name__ == "__main__":
     [_,FP],[FN,_] = tm.confusion_est(y_test, y_predCP)
     bias[3] = (FP-FN)/len(y_test)
     sPCC[3] = tm.rho(y_test, y_predCP)
-    acc[3] = sklearn.metrics.accuracy_score(y_test,y_predCP)
-    BA[3] = sklearn.metrics.balanced_accuracy_score(y_test,y_predCP)
-    MCC[3] = sklearn.metrics.matthews_corrcoef(y_test,y_predCP)
+    acc[3] = sklearn.metrics.accuracy_score(y_test,y_predCP >= 0.5)
+    BA[3] = sklearn.metrics.balanced_accuracy_score(y_test,y_predCP >= 0.5)
+    MCC[3] = sklearn.metrics.matthews_corrcoef(y_test,y_predCP >= 0.5)
     AUROC[3] = sklearn.metrics.roc_auc_score(y_test,y_predCP)    
 
 
