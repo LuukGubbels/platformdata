@@ -133,10 +133,10 @@ class Machine(Process):
 
         with open(self.X_test_pos) as f:
             te_pos_n = sum(1 for line in f) - 1
-        y_test_pos = np.ones(te_pos_n)
+        y_test_pos = np.ones(int(te_pos_n/10))
         with open(self.X_test_neg) as f:
             te_neg_n = sum(1 for line in f) - 1
-        y_test_neg = np.zeros(te_neg_n)
+        y_test_neg = np.zeros(int(te_neg_n/10))
         y_test = np.concatenate([y_test_pos, y_test_neg])
 
         te_pos = np.random.choice(range(1,te_pos_n), size = int(te_pos_n/10), replace = False)
