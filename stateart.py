@@ -146,8 +146,9 @@ class Machine(Process):
         te_neg = np.concatenate([te_neg,[0]])
         X_test_neg1 = pd.read_csv(self.X_test_neg, skiprows = lambda i: i not in te_neg)
         X_test = pd.concat([X_test_pos1, X_test_neg1]) 
-        self.X_test = tm.processing(self.X_test, tfidfvectorizer=tfidfvectorizer, cv=cv)
+        X_test = tm.processing(self.X_test, tfidfvectorizer=tfidfvectorizer, cv=cv)
 
+        y_pred = self.alg.predict(X_test, cal = False)
         threshold = 0.5
         self.posest.value = np.sum(y_pred)
         [_, FP], [FN, _] = tm.confusion_est(y_test, y_pred)
