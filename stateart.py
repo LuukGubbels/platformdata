@@ -62,8 +62,8 @@ import sklearn.model_selection
 import sklearn.metrics
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
-from Modules import thesis_module as tm
-from Modules import BayesCCal as bc
+import thesis_module as tm
+import BayesCCal as bc
 from tqdm import tqdm
 from multiprocessing import Value, Process
 from time import time
@@ -123,7 +123,7 @@ class Machine(Process):
 
         X_train_pos1 = pd.read_csv(self.X_train_pos)
         
-        tr_neg = np.random.choice(range(1,tr_neg_n), size = tr_pos_n-1, replace = False)
+        tr_neg = np.random.choice(range(1,tr_neg_n), size = tr_pos_n, replace = False)
         tr_neg = np.concatenate([tr_neg, [0]])
         X_train_neg1 = pd.read_csv(self.X_train_neg, skiprows = lambda i: i not in tr_neg)
         X_train = pd.concat([X_train_pos1, X_train_neg1])
