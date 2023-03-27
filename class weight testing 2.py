@@ -74,8 +74,8 @@ import sklearn.metrics
 import pandas as pd
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
-from Modules import thesis_module as tm
-from Modules import BayesCCal as bc
+import thesis_module as tm
+import BayesCCal as bc
 from tqdm import tqdm
 from copy import copy
 from multiprocessing import Lock, Value, Process
