@@ -7,7 +7,7 @@ if __name__ == "__main__":
     argv = sys.argv[1:]
 
     # infiles = ['../platformSample_data2.csv','../randomSample_purified_data2.csv']
-    X_train_pos = '../platformSample_data2 processed.csv'
+    X_train_pos = 'data/X_train_os.csv'
     X_train_neg = '../platformSample_data2 processed.csv'
     X_test_pos = '../randomSample_purified_data2 processed.csv'
     X_test_neg = '../randomSample_purified_data2 processed.csv'
@@ -43,7 +43,7 @@ if __name__ == "__main__":
             X_train_neg = arg
         elif opt in ("-tep","--tepos"):
             X_test_pos = arg
-        elif opt in ("-ten","--tenog"):
+        elif opt in ("-ten","--teneg"):
             X_test_neg = arg
         # if opt in ("-i","--ifile"):
         #     infiles = arg.strip('][').split(',')
