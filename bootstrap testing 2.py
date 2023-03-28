@@ -54,6 +54,8 @@ if __name__ == "__main__":
             iters = int(arg)
         elif opt in ("-j","--jobs"):
             jobs = int(arg)
+        elif opt in ("-f","--feats") and arg == 'True':
+            feats = True
     
     try:
         fo = open(outfile, "wb")
