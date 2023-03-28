@@ -160,7 +160,7 @@ class Machine(Process):
         
         self.alg.fit(X_train,y_train)
         features_w = np.vstack([features, self.alg.classifier.coef_[0]]).T
-        pd.DataFrame(features_w, columns=["Features","Weights"]).to_csv('features/ClassWeightFeats'+str(np.round(self.alg.classifier.class_weight[1],2))+str(self.id)+'.csv')
+        pd.DataFrame(features_w, columns=["Features","Weights"]).to_csv('features/ClassWeightFeats'+str(np.round(self.alg.classifier.class_weight[1],2))+' '+str(self.id)+'.csv')
 
         X_test = tm.processing(X_test, tfidfvectorizer=tfidfvectorizer, cv=cv)
         
