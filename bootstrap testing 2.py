@@ -55,6 +55,7 @@ if __name__ == "__main__":
         elif opt in ("-j","--jobs"):
             jobs = int(arg)
         elif opt in ("-f","--feats") and arg == 'True':
+            print("Features will be stored!")
             feats = True
     
     try:
