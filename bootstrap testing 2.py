@@ -119,9 +119,13 @@ class Machine(Process):
         # X_test_neg1 = pd.read_csv(self.X_test_neg, skiprows = lambda i: i not in te_neg)
         # X_test = pd.concat([X_test_pos1, X_test_neg1])      
 
-        X_train, _, tfidfvectorizer, cv = tm.processing(X_train)
-
+        X_train, features, tfidfvectorizer, cv = tm.processing(X_train)
+        features = np.concatenate([features,['language']])
+        
         self.alg.fit(X_train,y_train)
+        features_w = np.vstack([features, self.alg.classifier.coef_[0]]).T
+        pd.DataFrame(features_w, columns=["Features","Weights"]).to_csv('features/BootstrapFeats'+str(id)+'.csv')
+
         self.X_test = tm.processing(self.X_test, tfidfvectorizer=tfidfvectorizer, cv=cv)
         
         self.y_pred.append(self.alg.predict(self.X_test, new_threshold = False, cal = False))
