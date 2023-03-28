@@ -11,6 +11,7 @@ if __name__ == "__main__":
     outfile = '../Results/BootstrapResults.csv'
     iters = 2
     jobs = 5
+    feats = False
 
     try:
         opts, args = getopt.getopt(argv,
@@ -21,6 +22,7 @@ if __name__ == "__main__":
     if '?' in args or 'help' in args:
         print('Help for stateart.py')
         print('This file is used to benchmark the current state of the art.')
+        print('Note that all input files should be processed by processed.py before using.')
         print()
         print('Options:')
         print('-trp, --trpos:  Defines the file from which positive training data should be read.')
@@ -30,6 +32,7 @@ if __name__ == "__main__":
         print('-o, --ofile:    Defines the file to which results should be written.')
         print('-n, --iters:    Defines the number of machines should be used.')
         print('-j, --jobs:     Defines the number of machines that should be run in parallel.')
+        print('-f, --feats:   Defines if features should be stored.')
 
         print()
         sys.exit(2)
@@ -48,7 +51,8 @@ if __name__ == "__main__":
             iters = int(arg)
         elif opt in ("-j","--jobs"):
             jobs = int(arg)
-    
+        elif opt in ("-f","--feats") and arg == 'True':
+            feats = True    
     try:
         fo = open(outfile, "wb")
         fo.close()
@@ -128,8 +132,13 @@ class Machine(Process):
         X_train_neg1 = pd.read_csv(self.X_train_neg, skiprows = lambda i: i not in tr_neg)
         X_train = pd.concat([X_train_pos1, X_train_neg1])
 
-        X_train, _, tfidfvectorizer, cv = tm.processing(X_train)
+        X_train, features, tfidfvectorizer, cv = tm.processing(X_train)
+        features = np.concatenate([features,['language']])
+        
         self.alg.fit(X_train,y_train)
+        if feats:
+            features_w = np.vstack([features, self.alg.classifier.coef_[0]]).T
+            pd.DataFrame(features_w, columns=["Features","Weights"]).to_csv('features/StateArtFeats'+str(self.id)+'.csv')
 
         with open(self.X_test_pos) as f:
             te_pos_n = sum(1 for line in f) - 1
@@ -159,37 +168,38 @@ class Machine(Process):
         self.MCC.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_pred>=threshold),4)
         self.AUROC.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_pred),4)
 
-        y_pred = self.alg.predict_proba(X_test, cal = False)[:,1]
-        self.posest_P.value = np.sum(y_pred)
-        [_, FP], [FN, _] = tm.confusion_est(y_test, y_pred)
+        y_predP = self.alg.predict_proba(X_test, cal = False)[:,1]
+        self.posest_P.value = np.sum(y_predP)
+        [_, FP], [FN, _] = tm.confusion_est(y_test, y_predP)
         self.bias_P.value = (FP-FN)/len(y_test)
-        self.sPCC_P.value = np.round(tm.rho(y_test, y_pred),4)
-        self.acc_P.value = np.round(sklearn.metrics.accuracy_score(y_test, y_pred>=threshold), 4)            
-        self.BA_P.value = np.round(sklearn.metrics.balanced_accuracy_score(y_test, y_pred>=threshold),4)
-        self.MCC_P.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_pred>=threshold),4)
-        self.AUROC_P.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_pred),4)
+        self.sPCC_P.value = np.round(tm.rho(y_test, y_predP),4)
+        self.acc_P.value = np.round(sklearn.metrics.accuracy_score(y_test, y_predP>=threshold), 4)            
+        self.BA_P.value = np.round(sklearn.metrics.balanced_accuracy_score(y_test, y_predP>=threshold),4)
+        self.MCC_P.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_predP>=threshold),4)
+        self.AUROC_P.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_predP),4)
 
-        y_pred = self.alg.predict(X_test, new_threshold = False, cal = True)
+        y_predC = self.alg.predict(X_test, new_threshold = False, cal = True)
         threshold = self.alg.threshold
-        self.posest_C.value = np.sum(y_pred)
-        [_, FP], [FN, _] = tm.confusion_est(y_test, y_pred)
+        self.posest_C.value = np.sum(y_predC)
+        [_, FP], [FN, _] = tm.confusion_est(y_test, y_predC)
         self.bias_C.value = (FP-FN)/len(y_test)
-        self.sPCC_C.value = np.round(tm.rho(y_test, y_pred),4)
-        self.acc_C.value = np.round(sklearn.metrics.accuracy_score(y_test, y_pred>=threshold), 4)            
-        self.BA_C.value = np.round(sklearn.metrics.balanced_accuracy_score(y_test, y_pred>=threshold),4)
-        self.MCC_C.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_pred>=threshold),4)
-        self.AUROC_C.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_pred),4)
+        self.sPCC_C.value = np.round(tm.rho(y_test, y_predC),4)
+        self.acc_C.value = np.round(sklearn.metrics.accuracy_score(y_test, y_predC>=threshold), 4)            
+        self.BA_C.value = np.round(sklearn.metrics.balanced_accuracy_score(y_test, y_predC>=threshold),4)
+        self.MCC_C.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_predC>=threshold),4)
+        self.AUROC_C.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_predC),4)
 
-        y_pred = self.alg.predict_proba(X_test, cal = True)[:,1]
-        self.posest_CP.value = np.sum(y_pred)
-        [_, FP], [FN, _] = tm.confusion_est(y_test, y_pred)
+        y_predCP = self.alg.predict_proba(X_test, cal = True)[:,1]
+        self.posest_CP.value = np.sum(y_predCP)
+        [_, FP], [FN, _] = tm.confusion_est(y_test, y_predCP)
         self.bias_CP.value = (FP-FN)/len(y_test)
-        self.sPCC_CP.value = np.round(tm.rho(y_test, y_pred),4)
-        self.acc_CP.value = np.round(sklearn.metrics.accuracy_score(y_test, y_pred>=threshold), 4)            
-        self.BA_CP.value = np.round(sklearn.metrics.balanced_accuracy_score(y_test, y_pred>=threshold),4)
-        self.MCC_CP.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_pred>=threshold),4)
-        self.AUROC_CP.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_pred),4)       
-
+        self.sPCC_CP.value = np.round(tm.rho(y_test, y_predCP),4)
+        self.acc_CP.value = np.round(sklearn.metrics.accuracy_score(y_test, y_predCP>=threshold), 4)            
+        self.BA_CP.value = np.round(sklearn.metrics.balanced_accuracy_score(y_test, y_predCP>=threshold),4)
+        self.MCC_CP.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_predCP>=threshold),4)
+        self.AUROC_CP.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_predCP),4)       
+        
+        pd.DataFrame([y_pred,y_predP,y_predC,y_predCP]).to_csv('results/StateArtPredictions.csv')
 if __name__ == "__main__":
     start = time()
     alg = LogisticRegression()
