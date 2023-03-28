@@ -250,6 +250,7 @@ if __name__ == "__main__":
     y_predP = np.mean(np.array(y_predP), axis=0)
     y_predC = (np.mean(np.array(y_predC),axis=0) >= 0.5)
     y_predCP = np.mean(np.array(y_predCP), axis=0)
+    pd.DataFrame([y_pred,y_predP,y_predC,y_predCP]).to_csv('results/BootstrapPredictions.csv')    
     
     posest = np.array([np.sum(y_pred),np.sum(y_predP),np.sum(y_predC), np.sum(y_predCP)])
     [_,FP],[FN,_] = tm.confusion_est(y_test, y_pred)
