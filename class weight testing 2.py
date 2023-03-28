@@ -155,9 +155,13 @@ class Machine(Process):
 
         self.TP.value = np.sum(y_test)
 
-        X_train, _, tfidfvectorizer, cv = tm.processing(X_train)
-
+        X_train, features, tfidfvectorizer, cv = tm.processing(X_train)
+        features = np.concatenate([features,['language']])
+        
         self.alg.fit(X_train,y_train)
+        features_w = np.vstack([features, self.alg.classifier.coef_[0]]).T
+        pd.DataFrame(features_w, columns=["Features","Weights"]).to_csv('features/ClassWeightFeats'+str(np.round(self.alg.classifier.class_weight[1],2))+str(self.id)+'.csv')
+
         X_test = tm.processing(X_test, tfidfvectorizer=tfidfvectorizer, cv=cv)
         
         y_pred = self.alg.predict(X_test, new_threshold = False, cal = False)
@@ -170,37 +174,40 @@ class Machine(Process):
         self.BA.value = np.round(sklearn.metrics.balanced_accuracy_score(y_test, y_pred>=threshold),4)
         self.MCC.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_pred>=threshold),4)
         self.AUROC.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_pred),4)
+       
 
-        y_pred = self.alg.predict_proba(X_test, cal = False)[:,1]
-        self.posest_P.value = np.sum(y_pred)
-        [_, FP], [FN, _] = tm.confusion_est(y_test, y_pred)
+        y_predP = self.alg.predict_proba(X_test, cal = False)[:,1]
+        self.posest_P.value = np.sum(y_predP)
+        [_, FP], [FN, _] = tm.confusion_est(y_test, y_predP)
         self.bias_P.value = (FP-FN)/len(y_test)
-        self.sPCC_P.value = np.round(tm.rho(y_test, y_pred),4)
-        self.acc_P.value = np.round(sklearn.metrics.accuracy_score(y_test, y_pred>=threshold), 4)            
-        self.BA_P.value = np.round(sklearn.metrics.balanced_accuracy_score(y_test, y_pred>=threshold),4)
-        self.MCC_P.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_pred>=threshold),4)
-        self.AUROC_P.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_pred),4)
+        self.sPCC_P.value = np.round(tm.rho(y_test, y_predP),4)
+        self.acc_P.value = np.round(sklearn.metrics.accuracy_score(y_test, y_predP>=threshold), 4)            
+        self.BA_P.value = np.round(sklearn.metrics.balanced_accuracy_score(y_test, y_predP>=threshold),4)
+        self.MCC_P.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_predP>=threshold),4)
+        self.AUROC_P.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_predP),4)
 
-        y_pred = self.alg.predict(X_test, new_threshold = False, cal = True)
+        y_predC = self.alg.predict(X_test, new_threshold = False, cal = True)
         threshold = self.alg.threshold
-        self.posest_C.value = np.sum(y_pred)
-        [_, FP], [FN, _] = tm.confusion_est(y_test, y_pred)
+        self.posest_C.value = np.sum(y_predC)
+        [_, FP], [FN, _] = tm.confusion_est(y_test, y_predC)
         self.bias_C.value = (FP-FN)/len(y_test)
-        self.sPCC_C.value = np.round(tm.rho(y_test, y_pred),4)
-        self.acc_C.value = np.round(sklearn.metrics.accuracy_score(y_test, y_pred>=threshold), 4)            
-        self.BA_C.value = np.round(sklearn.metrics.balanced_accuracy_score(y_test, y_pred>=threshold),4)
-        self.MCC_C.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_pred>=threshold),4)
-        self.AUROC_C.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_pred),4)
+        self.sPCC_C.value = np.round(tm.rho(y_test, y_predC),4)
+        self.acc_C.value = np.round(sklearn.metrics.accuracy_score(y_test, y_predC>=threshold), 4)            
+        self.BA_C.value = np.round(sklearn.metrics.balanced_accuracy_score(y_test, y_predC>=threshold),4)
+        self.MCC_C.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_predC>=threshold),4)
+        self.AUROC_C.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_predC),4)
 
-        y_pred = self.alg.predict_proba(X_test, cal = True)[:,1]
-        self.posest_CP.value = np.sum(y_pred)
-        [_, FP], [FN, _] = tm.confusion_est(y_test, y_pred)
+        y_predCP = self.alg.predict_proba(X_test, cal = True)[:,1]
+        self.posest_CP.value = np.sum(y_predCP)
+        [_, FP], [FN, _] = tm.confusion_est(y_test, y_predCP)
         self.bias_CP.value = (FP-FN)/len(y_test)
-        self.sPCC_CP.value = np.round(tm.rho(y_test, y_pred),4)
-        self.acc_CP.value = np.round(sklearn.metrics.accuracy_score(y_test, y_pred>=threshold), 4)            
-        self.BA_CP.value = np.round(sklearn.metrics.balanced_accuracy_score(y_test, y_pred>=threshold),4)
-        self.MCC_CP.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_pred>=threshold),4)
-        self.AUROC_CP.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_pred),4)       
+        self.sPCC_CP.value = np.round(tm.rho(y_test, y_predCP),4)
+        self.acc_CP.value = np.round(sklearn.metrics.accuracy_score(y_test, y_predCP>=threshold), 4)            
+        self.BA_CP.value = np.round(sklearn.metrics.balanced_accuracy_score(y_test, y_predCP>=threshold),4)
+        self.MCC_CP.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_predCP>=threshold),4)
+        self.AUROC_CP.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_predCP),4)       
+        
+        pd.DataFrame([y_pred,y_predP,y_predC,y_predCP]).to_csv('results/ClassWeightPredictions.csv')
 
 # Arguments
 # infile (file or list of files to )
