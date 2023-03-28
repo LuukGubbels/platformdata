@@ -14,6 +14,7 @@ if __name__ == "__main__":
     size = 3
     avg = 2
     jobs = 2
+    F = False
     
     try:
         opts, args = getopt.getopt(argv,
@@ -24,15 +25,19 @@ if __name__ == "__main__":
     if '?' in args or 'help' in args:
         print('Help for "bootstrap testing 2.py"')
         print('This file is used to benchmark linear SVMs using bootstrapping.')
+        print('Note that all input files should be processed by processed.py before using.')
         print()
         print('Options:')
-        print('-tr, --train:  Defines the file from which training data should be read. Input as a .csv file with extension.')
-        print('-te, --test:   Defines the file from which testing data should be read. Input as a .csv file with extension.')
+        print('-trp, --trpos: Defines the file from which positive training data should be read. Input as a .csv file with extension.')
+        print('-trn, --trneg: Defines the file from which negative training data should be read. Input as a .csv file with extension.')
+        print('-tep, --tepos: Defines the file from which positive testing data should be read. Input as a .csv file with extension.')
+        print('-ten, --teneg: Defines the file from which negative testing data should be read. Input as a .csv file with extension.')
         # print('-i, --ifile:   Defines the files from which files should be read. Input as a python list with file extension.')
         print('-o, --ofile:   Defines the file in which results should be stored. Input with a file extension.')
         print('-s, --size:    Defines the number of machines should be used per ensemble. Non-integer numbers will be rounded down.')
         print('-a, --avg:     Defines the number of iterations needed to average the effects of stemming.')
-
+        print('-f, --feats:   Defines if the features should be stored.')
+        
         print()
         sys.exit(2)
     for opt, arg in opts:
@@ -56,6 +61,8 @@ if __name__ == "__main__":
             avg = int(arg)
         elif opt in ("-j","--jobs"):
             avg = int(arg)
+        elif otp in ("-f","--feats") and arg == 'True':
+            F = True
 
 # take 80/20 split on training sets per machine
 # use 0.2 validation set to give weight to machine
@@ -147,6 +154,10 @@ class Machine(Process):
         for ind,i in enumerate(self.alg):
             X_train, X_val, y_train, y_val = sklearn.model_selection.train_test_split(self.X_train, self.y_train, test_size = 0.2)
             X_train, feats, TFvec, Cvec = tm.processing(X_train)
+            if F:
+                Fe = np.concatenate([feats,['language']])
+                pd.DataFrame(features_w, columns=["Features","Weights"]).to_csv('features/EnsembleFeats'+str(self.id)+'.'+str(ind)+'.csv')
+                
             features.append(feats)
             tfidfvectorizer.append(TFvec)
             cv.append(Cvec)
@@ -208,6 +219,8 @@ class Machine(Process):
         y_pred_C /= self.size
         y_pred_C = y_pred_C >= 0.5
         y_pred_CP /= self.size
+        
+        pd.DataFrame([y_pred,y_predP,y_predC,y_predCP]).to_csv('results/EnsemblePredictions.csv')
 
         threshold = 0.5
         self.posest.value = np.sum(y_pred)
