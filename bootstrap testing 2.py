@@ -11,24 +11,29 @@ if __name__ == "__main__":
     outfile = '../Results/BootstrapResults.csv'
     iters = 2
     jobs = 5
+    feats = False
 
     try:
         opts, args = getopt.getopt(argv,
-                "trp:trn:tep:ten:o:n:j:",
-                ["trpos=","trneg=","tepos=","teneg=","test=","ofile=","iters=","jobs="])
+                "trp:trn:tep:ten:o:n:j:f:",
+                ["trpos=","trneg=","tepos=","teneg=","test=","ofile=","iters=","jobs=","feats="])
     except getopt.GetoptError:
         sys.exit(2)
     if '?' in args or 'help' in args:
         print('Help for "bootstrap testing 2.py"')
-        print('This file is used to benchmark linear SVMs using bootstrapping.')
+        print('This file is used to benchmark LogisticRegression using bootstrapping.')
+        print('Note that all input files should be processed by processed.py before using.')
         print()
         print('Options:')
-        print('-tr, --train:  Defines the file from which training data should be read. Input as a .csv file with extension.')
-        print('-te, --test:   Defines the file from which testing data should be read. Input as a .csv file with extension.')
+        print('-trp, --trpos: Defines the file from which positive training data should be read. Input as a .csv file with extension.')
+        print('-trn, --trneg: Defines the file from which negative training data should be read. Input as a .csv file with extension.')
+        print('-tep, --tepos: Defines the file from which positive testing data should be read. Input as a .csv file with extension.')
+        print('-ten, --teneg: Defines the file from which negative testing data should be read. Input as a .csv file with extension.')
         # print('-i, --ifile:   Defines the files from which files should be read. Input as a python list with file extension.')
         print('-o, --ofile:   Defines the file in which results should be stored. Input with a file extension.')
         print('-n, --iters:   Defines the number of machines / bootstrap samples should be used. Non-integer numbers will be rounded down.')
         print('-j, --jobs:    Defines the number of jobs should be used.')
+        print('-f, --feats:   Defines if features should be stored.')
 
         print()
         sys.exit(2)
@@ -123,8 +128,9 @@ class Machine(Process):
         features = np.concatenate([features,['language']])
         
         self.alg.fit(X_train,y_train)
-        features_w = np.vstack([features, self.alg.classifier.coef_[0]]).T
-        pd.DataFrame(features_w, columns=["Features","Weights"]).to_csv('features/BootstrapFeats'+str(self.id)+'.csv')
+        if feats:
+            features_w = np.vstack([features, self.alg.classifier.coef_[0]]).T
+            pd.DataFrame(features_w, columns=["Features","Weights"]).to_csv('features/BootstrapFeats'+str(self.id)+'.csv')
 
         self.X_test = tm.processing(self.X_test, tfidfvectorizer=tfidfvectorizer, cv=cv)
         
