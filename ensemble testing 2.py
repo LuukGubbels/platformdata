@@ -220,7 +220,7 @@ class Machine(Process):
         y_pred_C = y_pred_C >= 0.5
         y_pred_CP /= self.size
         
-        pd.DataFrame([y_pred,y_predP,y_predC,y_predCP]).to_csv('results/EnsemblePredictions.csv')
+        pd.DataFrame([y_pred,y_pred_P,y_pred_C,y_predCP]).to_csv('results/EnsemblePredictions.csv')
 
         threshold = 0.5
         self.posest.value = np.sum(y_pred)
