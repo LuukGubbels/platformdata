@@ -4,19 +4,19 @@ if __name__ == "__main__":
     print()
     argv = sys.argv[1:]
 
-    X_train_pos = '../platformSample_data2 processed.csv'
-    X_train_neg = '../platformSample_data2 processed.csv'
-    X_test_pos = '../randomSample_purified_data2 processed.csv'
-    X_test_neg = '../randomSample_purified_data2 processed.csv'
-    outfile = '../Results/BootstrapResults.csv'
+    X_train_pos = 'data/X_train_pos processed.csv'
+    X_train_neg = 'data/X_train_neg processed.csv'
+    X_test_pos = 'data/X_test_pos processed.csv'
+    X_test_neg = 'data/X_test_neg processed.csv'
+    outfile = 'results/StateArtResults.csv'
     iters = 2
     jobs = 5
     feats = False
 
     try:
         opts, args = getopt.getopt(argv,
-                "trp:trn:tep:ten:o:n:j:",
-                ["trpos=","trneg=","tepos=","teneg=","ofile=","iters=","jobs="])
+                "P:N:p:n:o:m:j:f",
+                ["trpos=","trneg=","tepos=","teneg=","ofile=","iters=","jobs=","feats="])
     except getopt.GetoptError:
         sys.exit(2)
     if '?' in args or 'help' in args:
@@ -25,29 +25,29 @@ if __name__ == "__main__":
         print('Note that all input files should be processed by processed.py before using.')
         print()
         print('Options:')
-        print('-trp, --trpos:  Defines the file from which positive training data should be read.')
-        print('-trn, --trneg:  Defines the file from which negative training data should be read.')
-        print('-tep, --tepos:  Defines the file from which positive testing data should be read.')
-        print('-ten, --teneg:  Defines the file from which negative testing data should be read.')
-        print('-o, --ofile:    Defines the file to which results should be written.')
-        print('-n, --iters:    Defines the number of machines should be used.')
-        print('-j, --jobs:     Defines the number of machines that should be run in parallel.')
-        print('-f, --feats:   Defines if features should be stored.')
+        print('-P, --trpos: Defines the file from which positive training data should be read. Input as a .csv file with extension. Defaults to "data/X_train_pos processed.csv".')
+        print('-N, --trneg: Defines the file from which negative training data should be read. Input as a .csv file with extension. Defaults to "data/X_train_neg processed.csv".')
+        print('-p, --tepos: Defines the file from which positive testing data should be read. Input as a .csv file with extension. Defaults to "data/X_test_pos processed.csv".')
+        print('-n, --teneg: Defines the file from which negative testing data should be read. Input as a .csv file with extension. Defaults to "data/X_test_neg processed.csv".')
+        print('-o, --ofile:   Defines the file in which results should be stored. Input with a file extension. Defaults to "results/StateArtResults.csv".')
+        print('-m, --iters:   Defines the number of machines / bootstrap samples should be used. Non-integer numbers will be rounded down. Defaults to 100.')
+        print('-j, --jobs:    Defines the number of machines should be ran in parallel. Non-integer numbers will be rounded down. Defaults to 5.')
+        print('-f, --feats:   Defines if features should be stored. Defaults to False.')
 
         print()
         sys.exit(2)
     for opt, arg in opts:
-        if opt in ("-trp","--trpos"):
+        if opt in ("-P","--trpos"):
             X_train_pos = arg
-        elif opt in ("-trn","--trneg"):
+        elif opt in ("-N","--trneg"):
             X_train_neg = arg
-        elif opt in ("-tep","--tepos"):
+        elif opt in ("-p","--tepos"):
             X_test_pos = arg
-        elif opt in ("-ten","--teneg"):
+        elif opt in ("-n","--teneg"):
             X_test_neg = arg
         elif opt in ("-o","--ofile"):
             outfile = arg
-        elif opt in ("-n","--iters"):
+        elif opt in ("-m","--iters"):
             iters = int(arg)
         elif opt in ("-j","--jobs"):
             jobs = int(arg)
@@ -73,6 +73,7 @@ from multiprocessing import Value, Process
 from time import time
 
 class Machine(Process):
+    # Initialize a process, storing the associated datasets and Values for storing metrics
     def __init__(self, alg, id, X_train_pos, X_train_neg,X_test_pos, X_test_neg):    
         Process.__init__(self)
         self.alg = alg
@@ -117,6 +118,8 @@ class Machine(Process):
         self.AUROC_CP = Value('f',0)
 
     def run(self):
+        
+        # Form the training dataset and process it
         with open(self.X_train_pos) as f:
             tr_pos_n = sum(1 for line in f) - 1
         y_train_pos = np.ones(tr_pos_n)
@@ -135,11 +138,13 @@ class Machine(Process):
         X_train, features, tfidfvectorizer, cv = tm.processing(X_train)
         features = np.concatenate([features,['language']])
         
+        # Fit the machine and store the features if needed
         self.alg.fit(X_train,y_train)
         if feats:
             features_w = np.vstack([features, self.alg.classifier.coef_[0]]).T
             pd.DataFrame(features_w, columns=["Features","Weights"]).to_csv('features/StateArtFeats'+str(self.id)+'.csv')
 
+        # Form the testing set and process it
         with open(self.X_test_pos) as f:
             te_pos_n = sum(1 for line in f) - 1
         y_test_pos = np.ones(int(te_pos_n/10))
@@ -157,6 +162,7 @@ class Machine(Process):
         X_test = pd.concat([X_test_pos1, X_test_neg1]) 
         X_test = tm.processing(X_test, tfidfvectorizer=tfidfvectorizer, cv=cv)
 
+        # Predict the labels/probabilities per variant and calculate the metrics
         y_pred = self.alg.predict(X_test, cal = False)
         threshold = 0.5
         self.posest.value = np.sum(y_pred)
@@ -199,12 +205,14 @@ class Machine(Process):
         self.MCC_CP.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_predCP>=threshold),4)
         self.AUROC_CP.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_predCP),4)       
         
+        # Store the predictions of all four variants in a file (this file will be overwritten, so only the last machine's predictions will be stored).
         pd.DataFrame([y_pred,y_predP,y_predC,y_predCP]).to_csv('results/StateArtPredictions.csv')
 if __name__ == "__main__":
     start = time()
     alg = LogisticRegression()
     alg = bc.calibrator_binary(alg, density = 'test')
 
+    # Exectue the processes in batches and wait until they are finished to start a new batch
     processes = [Machine(alg, i, X_train_pos, X_train_neg, 
                          X_test_pos, X_test_neg) for i in range(iters)]
     batches = range(int((iters-1)/jobs+1))
@@ -213,6 +221,8 @@ if __name__ == "__main__":
             process.start()
         for process in processes[i*jobs:(i+1)*jobs]:
             process.join()
+            
+    # Initialize arrays usef for storing metrics
     TP = np.array([process.TP.value, process.TP.value, process.TP.value, process.TP.value])
     posest = np.zeros(4)
     bias = np.zeros(4)
@@ -222,6 +232,7 @@ if __name__ == "__main__":
     MCC = np.zeros(4)
     AUROC = np.zeros(4)
 
+    # Average the metrics over all machines
     for process in processes:
         posest[0] += process.posest.value
         bias[0] += process.bias.value
@@ -263,6 +274,7 @@ if __name__ == "__main__":
     MCC /= iters
     AUROC /= iters
 
+    # Store the metrics as results in a .csv
     dfmets = pd.DataFrame(columns =['BayesCal?','Proba?',
                                 'TP','Pos. Est.','Bias','sPCC',
                                 'Acc','BA','MCC','AUROC'])
