@@ -13,7 +13,7 @@ if __name__ == "__main__":
     iters = 3
     size = 3
     avg = 2
-    jobs = 2
+    jobs = 5
     F = False
     
     try:
@@ -28,15 +28,16 @@ if __name__ == "__main__":
         print('Note that all input files should be processed by processed.py before using.')
         print()
         print('Options:')
-        print('-P, --trpos: Defines the file from which positive training data should be read. Input as a .csv file with extension.')
-        print('-N, --trneg: Defines the file from which negative training data should be read. Input as a .csv file with extension.')
-        print('-p, --tepos: Defines the file from which positive testing data should be read. Input as a .csv file with extension.')
-        print('-n, --teneg: Defines the file from which negative testing data should be read. Input as a .csv file with extension.')
-        print('-o, --ofile:   Defines the file in which results should be stored. Input with a file extension.')
-        print('-m, --iters:   Defines the number of ensembles that should be used.')
-        print('-s, --size:    Defines the number of machines should be used per ensemble. Non-integer numbers will be rounded down.')
-        print('-a, --avg:     Defines the number of iterations needed to average the effects of stemming.')
-        print('-f, --feats:   Defines if the features should be stored.')
+        print('-P, --trpos: Defines the file from which positive training data should be read. Input as a .csv file with extension. Defaults to "data/X_train_pos processed.csv".')
+        print('-N, --trneg: Defines the file from which negative training data should be read. Input as a .csv file with extension. Defaults to "data/X_train_neg processed.csv".')
+        print('-p, --tepos: Defines the file from which positive testing data should be read. Input as a .csv file with extension. Defaults to "data/X_test_pos processed.csv".')
+        print('-n, --teneg: Defines the file from which negative testing data should be read. Input as a .csv file with extension. Defaults to "data/X_test_neg processed.csv".')
+        print('-o, --ofile:   Defines the file in which results should be stored. Input with a file extension. Defaults to "results/EnsembelResults.csv".')
+        print('-m, --iters:   Defines the number of ensembles that should be used. Non-integer numbers will be rounded down. Defaults to 3.')
+        print('-s, --size:    Defines the number of machines should be used per ensemble. Non-integer numbers will be rounded down. Defaults to 3.')
+        print('-a, --avg:     Defines the number of iterations needed to average the effects of stemming. Non-integer numbers will be rounded down. Defaults to 2.')
+        print('j, --jobs:     Defines the number of machines should be ran in parallel. Non-integer numbers will be rounded down. Defaults to 5.')
+        print('-f, --feats:   Defines if the features should be stored. Defaults to False.')
         
         print()
         sys.exit(2)
@@ -62,9 +63,6 @@ if __name__ == "__main__":
         elif otp in ("-f","--feats") and arg == 'True':
             F = True
 
-# take 80/20 split on training sets per machine
-# use 0.2 validation set to give weight to machine
-
     try:
         fo = open(outfile, "wb")
         fo.close()
@@ -87,6 +85,7 @@ from multiprocessing import Value, Process
 from time import time
 
 class Machine(Process):
+    # Initialize a process, storing the associated datasets and Values for storing metrics
     def __init__(self, alg, id, X_train, y_train, X_test, y_test, size, avg):
         Process.__init__(self)
         self.alg = []
@@ -138,6 +137,8 @@ class Machine(Process):
         self.AUROC_CP = Value('f',0)
     
     def run(self):
+        
+        # Prepare arrays to store weights and predictions
         features = []
         tfidfvectorizer = copy(features)
         cv = copy(features)
@@ -149,7 +150,11 @@ class Machine(Process):
         y_pred_P = copy(y_pred)
         y_pred_C = copy(y_pred)
         y_pred_CP = copy(y_pred)
+        
+        # Go over all machines in the ensemble, one by one
         for ind,i in enumerate(self.alg):
+            
+            # Make a training / validation split and process them, storing the features if needed
             X_train, X_val, y_train, y_val = sklearn.model_selection.train_test_split(self.X_train, self.y_train, test_size = 0.2)
             X_train, feats, TFvec, Cvec = tm.processing(X_train)
             if F:
@@ -162,6 +167,7 @@ class Machine(Process):
             i.fit(X_train, y_train)
             X_val = tm.processing(X_val, tfidfvectorizer = TFvec, cv = Cvec)
             
+            # Predict the labels of the validation set and storing the accuracy of that model per variant
             y_pred_v = i.predict(X_val, new_threshold = False, cal = False)
             w.append(sklearn.metrics.accuracy_score(y_val, y_pred_v))
             y_pred_v = i.predict_proba(X_val, cal = False)[:,1]
@@ -171,6 +177,7 @@ class Machine(Process):
             y_pred_v = i.predict_proba(X_val, cal = True)[:,1]
             w_CP.append(sklearn.metrics.accuracy_score(y_val, y_pred_v>=i.threshold))
 
+            # Predict the labels/probabilities of the testing set per variant
             X_test = tm.processing(self.X_test, tfidfvectorizer=TFvec, cv=Cvec)
             y_pred[ind] = i.predict(X_test, new_threshold=False, cal=False)
             y_pred_P[ind] += i.predict_proba(X_test, cal = False)[:,1]
@@ -178,6 +185,8 @@ class Machine(Process):
             y_pred_CP[ind] += i.predict_proba(X_test, cal = True)[:,1]
 
 
+        # Add another weight per machine based on how much the features of a machine overlap with that of each point in the test set.
+        # We create a weight matrix of size (# machines, # samples)
         weights = np.zeros((len(self.X_test),self.size))
         for _ in range(self.avg):
             test_tfidf, test_feats, _, _ = tm.processing(self.X_test, mindf=50)
@@ -191,6 +200,8 @@ class Machine(Process):
                 for j in range(self.size):
                     weights[i][j] += len(set(features[j]).intersection(set(feats)))/len(set(feats))
         weights = weights/self.avg
+        
+        # Multiply these matrices with the accuracy score per machine and normalize them
         weights_P = weights*np.array(w_P)
         weights_C = weights*np.array(w_C)
         weights_CP = weights*np.array(w_CP)
@@ -200,16 +211,11 @@ class Machine(Process):
         weights_C = sk.preprocessing.normalize(weights_C, 'l1')
         weights_CP = sk.preprocessing.normalize(weights_CP, 'l1')
 
+        # Obtain the weighted vote for label/probability per sample
         y_pred = np.sum(np.multiply(y_pred.reshape(-1,self.size), weights),axis=1).reshape(-1)
         y_pred_P = np.sum(np.multiply(y_pred_P.reshape(-1,self.size), weights_P),axis=1).reshape(-1)
         y_pred_C = np.sum(np.multiply(y_pred_C.reshape(-1,self.size), weights_C),axis=1).reshape(-1)
         y_pred_CP = np.sum(np.multiply(y_pred_CP.reshape(-1,self.size), weights_CP),axis=1).reshape(-1)
-
-        # X_test = tm.processing(self.X_test, tfidfvectorizer = tfidfvectorizer[ind], cv=cv[ind])
-        # y_pred = i.predict(X_test, new_threshold=False, cal=False)*weights[ind]
-        # y_pred_P += i.predict_proba(X_test, cal = False)[:,1]*weights_P[ind]
-        # y_pred_C += i.predict(X_test, new_threshold=False, cal=True)*weights_C[ind]
-        # y_pred_CP += i.predict_proba(X_test, cal = True)[:,1]*weights_CP[ind]
 
         y_pred /= self.size
         y_pred = y_pred >= 0.5
@@ -218,8 +224,10 @@ class Machine(Process):
         y_pred_C = y_pred_C >= 0.5
         y_pred_CP /= self.size
         
+        # Store the predictions of all four variants in a file (this file will be overwritten, so only the last ensemble's predictions will be stored).
         pd.DataFrame([y_pred,y_pred_P,y_pred_C,y_pred_CP]).to_csv('results/EnsemblePredictions.csv')
 
+        # Calculate the metrics per variant
         threshold = 0.5
         self.posest.value = np.sum(y_pred)
         [_, FP], [FN, _] = tm.confusion_est(self.y_test, y_pred)
@@ -261,6 +269,7 @@ if __name__ == "__main__":
     alg = LogisticRegression()
     alg = bc.calibrator_binary(alg, density = "test")
     
+    # Count the size of the training and testing populations
     X_train_pos = pd.read_csv(X_train_pos)
     y_train_pos = np.ones(len(X_train_pos))
     with open(X_train_neg) as f:
@@ -275,12 +284,14 @@ if __name__ == "__main__":
     y_test_neg = np.zeros(int(te_neg_n/10))
     y_test = np.concatenate([y_test_pos, y_test_neg])
 
+    # Execute the processes in batches and wait until they are finished to start the new batch
     processes = []
     batches = range(int((iters-1)/jobs+1))
     l = copy(iters)
     for j in tqdm(batches):
         k = min(jobs, l)
         while k > 0:
+            # Create a training and testing set per ensemble
             tr_neg = np.random.choice(range(1,tr_neg_n), size=int(tr_neg_n/10), replace=False)
             tr_neg = np.concatenate([tr_neg,[0]])
             X_train_neg1 = pd.read_csv(X_train_neg, skiprows=lambda i: i not in tr_neg)
@@ -301,6 +312,8 @@ if __name__ == "__main__":
         for process in processes[j*jobs:(j+1)*jobs]:
             process.join()
         l = l - jobs
+    
+    # Initialize arrays used for storing metrics
     TP = np.array([0,0,0,0], dtype='float64')
     posest = np.array([0,0,0,0], dtype='float64')
     bias = np.array([0,0,0,0], dtype='float64')
@@ -310,6 +323,7 @@ if __name__ == "__main__":
     MCC = np.array([0,0,0,0], dtype='float64')
     AUROC = np.array([0,0,0,0], dtype='float64')
 
+    # Average the metrics over all ensembles
     for process in processes:
         TP += np.array([process.TP, process.TP, process.TP, process.TP])
         posest += np.array([process.posest.value, process.posest_P.value, process.posest_C.value, process.posest_CP.value])
@@ -328,6 +342,7 @@ if __name__ == "__main__":
     MCC /= iters
     AUROC /= iters
 
+    # Store the metrics as results in a .csv
     dfmets = pd.DataFrame(columns= ['BayesCal?','Proba?',
                                     'TP','Pos. Est.','Bias','sPCC',
                                     'Acc','BA','MCC','AUROC'])
