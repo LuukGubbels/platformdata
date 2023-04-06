@@ -5,22 +5,21 @@ sys.path.append('../')
 if __name__ == "__main__":
     print()
     argv = sys.argv[1:]
-
-    # infiles = ['../platformSample_data2.csv','../randomSample_purified_data2.csv']
-    X_train_pos = 'data/X_train_os.csv'
-    X_train_neg = '../platformSample_data2 processed.csv'
-    X_test_pos = '../randomSample_purified_data2 processed.csv'
-    X_test_neg = '../randomSample_purified_data2 processed.csv'
-    outfile = '../Results/ClassWeightResults.csv'
+    
+    X_train_pos = 'data/X_train_pos processed.csv'
+    X_train_neg = 'data/X_train_neg processed.csv'
+    X_test_pos = 'data/X_test_pos processed.csv'
+    X_test_neg = 'data/X_test_neg processed.csv'
+    outfile = 'results/ClassWeightResults.csv'
     steps = 2
     iters = 5
-    jobs = 10
+    jobs = 5
     feats = False
 
     try:
         opts, args = getopt.getopt(argv,
-                "trp:trn:tep:ten:o:s:n:f:",
-                ["trpos=","trneg=","tepos=","teneg=","ofile=","steps=","iters=","feats="])
+                "P:N:p:n:o:s:m:j:f:",
+                ["trpos=","trneg=","tepos=","teneg=","ofile=","steps=","iters=","jobs=","feats="])
     except getopt.GetoptError:
         sys.exit(2)
     if '?' in args or 'help' in args:
@@ -29,35 +28,35 @@ if __name__ == "__main__":
         print('Note that all input files should be processed by processed.py before using.')
         print()
         print('Options:')
-        print('-trp, --trpos: Defines the file from which positive training data should be read. Input as a .csv file with extension.')
-        print('-trn, --trneg: Defines the file from which negative training data should be read. Input as a .csv file with extension.')
-        print('-tep, --tepos: Defines the file from which positive testing data should be read. Input as a .csv file with extension.')
-        print('-ten, --teneg: Defines the file from which negative testing data should be read. Input as a .csv file with extension.')
-        # print('-i, --ifile:   Defines the files from which files should be read. Input as a python list with file extension.')
-        print('-o, --ofile:   Defines the file in which results should be stored. Input with a file extension.')
-        print('-s, --steps:   Defines the number of steps should be taken in the logspace. Non-integer numbers will be rounded down.')
-        print('-n, --iters:   Defines the number of machines should be used per step in the logspace. Non-integer numbers will be rounded down.')
-        print('-f, --feats:   Defines if the features should be stored.')
+        print('-P, --trpos: Defines the file from which positive training data should be read. Input as a .csv file with extension. Defaults to "data/X_train_pos processed.csv".')
+        print('-N, --trneg: Defines the file from which negative training data should be read. Input as a .csv file with extension. Defaults to "data/X_train_neg processed.csv".')
+        print('-p, --tepos: Defines the file from which positive testing data should be read. Input as a .csv file with extension. Defaults to "data/X_test_pos processed.csv".')
+        print('-n, --teneg: Defines the file from which negative testing data should be read. Input as a .csv file with extension. Defaults to "data/X_test_neg processed.csv".')
+        print('-o, --ofile:   Defines the file in which results should be stored. Input with a file extension. Defaults to "results/ClassWeightResults.csv".')
+        print('-s, --steps:   Defines the number of steps should be taken in the logspace. Non-integer numbers will be rounded down. Defaults to 2.')
+        print('-m, --iters:   Defines the number of machines should be used per step in the logspace. Non-integer numbers will be rounded down. Defaults to 5.')
+        print('-j, --jobs:    Defines the number of machines should be ran in parallel. Non-integer numbers will be rounded down. Defaults to 5.')
+        print('-f, --feats:   Defines if the features should be stored. Defaults to False.')
 
         print()
         sys.exit(2)    
     for opt, arg in opts:
-        if opt in ("-trp","--trpos"):
+        if opt in ("-P","--trpos"):
             X_train_pos = arg
-        elif opt in ("-trn","--trneg"):
+        elif opt in ("-N","--trneg"):
             X_train_neg = arg
-        elif opt in ("-tep","--tepos"):
+        elif opt in ("-p","--tepos"):
             X_test_pos = arg
-        elif opt in ("-ten","--teneg"):
+        elif opt in ("-n","--teneg"):
             X_test_neg = arg
-        # if opt in ("-i","--ifile"):
-        #     infiles = arg.strip('][').split(',')
         elif opt in ("-o","--ofile"):
             outfile = arg
         elif opt in ("-s","--steps"):
             steps = int(arg)
-        elif opt in ("-n","--iters"):
+        elif opt in ("-m","--iters"):
             iters = int(arg)
+        elif opt in ("-j","--jobs"):
+            jobs = int(arg)
         elif otp in ("-f","--feats") and arg == 'True':
             feats = True
 
@@ -89,6 +88,7 @@ from multiprocessing import Lock, Value, Process
 from time import time
 
 class Machine(Process):
+    # Initialize a process, storing the associated datasets and Values for storing metrics
     def __init__(self, alg, id, X_train_pos, X_train_neg, X_test_pos, X_test_neg):
         Process.__init__(self)
         self.alg = alg
@@ -131,6 +131,8 @@ class Machine(Process):
         self.AUROC_CP = Value('f',0)
 
     def run(self):
+        
+        # Form the training and testing data set
         X_train_pos1 = pd.read_csv(self.X_train_pos)
         tr_pos_n = len(X_train_pos1)
         y_train_pos = np.ones(tr_pos_n)
@@ -162,6 +164,7 @@ class Machine(Process):
 
         self.TP.value = np.sum(y_test)
 
+        # Process the training set and fit the machine, storing features if needed
         X_train, features, tfidfvectorizer, cv = tm.processing(X_train)
         features = np.concatenate([features,['language']])
         
@@ -170,8 +173,10 @@ class Machine(Process):
             features_w = np.vstack([features, self.alg.classifier.coef_[0]]).T
             pd.DataFrame(features_w, columns=["Features","Weights"]).to_csv('features/ClassWeightFeats'+str(np.round(self.alg.classifier.class_weight[1],2))+' '+str(self.id)+'.csv')
 
+        # Process the testing set
         X_test = tm.processing(X_test, tfidfvectorizer=tfidfvectorizer, cv=cv)
         
+        # Predict the labels/probabilities of the testing set per variant and calculate and store the metrics
         y_pred = self.alg.predict(X_test, new_threshold = False, cal = False)
         threshold = 0.5
         self.posest.value = np.sum(y_pred)
@@ -215,79 +220,29 @@ class Machine(Process):
         self.MCC_CP.value = np.round(sklearn.metrics.matthews_corrcoef(y_test, y_predCP>=threshold),4)
         self.AUROC_CP.value = np.round(sklearn.metrics.roc_auc_score(y_test, y_predCP),4)       
         
+        # Store the predictions of all four variants in a file (this file will be overwritten a lot of times, so only the last machine's predictions will be stored)
         pd.DataFrame([y_pred,y_predP,y_predC,y_predCP]).to_csv('results/ClassWeightPredictions.csv')
-
-# Arguments
-# infile (file or list of files to )
-# outfile
-# steps
-# iters
-
-# dfsvm = pd.DataFrame(columns= ['Positive class weight', 'BayesCal?','TP','Pos. Est.','Bias','Pos. Est. P','BiasP', 'sPCC','Acc','AUROC','BA','MCC'])
-# print("Iterating over the log scale:")
-
-# Multithread -> gebruik multiprocessing ipv multithreading
-# size = iters
-# per machine eigen test set samplen, n/10, stratified (class dist behouden)
-# per sample van de test set predicten
 
 if __name__ == "__main__":
     start = time()
 
-    print("Iterating over the log scale:")
-    # df_train = tm.preprocess(train)
-    # y_train = np.array([df_train['platform']])[0]
-    # X_train = df_train.drop(['platform'], axis=1)
-    # X_test_pos = X_test_neg = X_train_pos = X_train_neg = X_train
-    
+    print("Iterating over the log scale:")    
     scale = np.logspace(0.1,2,steps)
-
-    # X_train_pos = pd.read_csv(X_train_pos)
-    # y_train_pos = np.ones(len(X_train_pos))
-
-    # with open(X_train_neg) as f:
-    #     tr_neg_n = sum(1 for line in f)
-    # y_train_neg = np.zeros(int(tr_neg_n/10))
-
-    # with open(X_test_pos) as f:
-    #     te_pos_n = sum(1 for line in f)
-    # y_test_pos = np.zeros(int(te_pos_n/10))
-    
-    # with open(X_test_neg) as f:
-    #     te_neg_n = sum(1 for line in f)
-    # y_test_neg = np.zeros(int(te_neg_n/10))
-
     for j in tqdm(scale, leave=False):
         alg = LogisticRegression(class_weight={0:1,1:j})
         alg = bc.calibrator_binary(alg, density='test')
 
         processes = [Machine(alg, i, X_train_pos, X_train_neg, X_test_pos, X_test_neg) for i in range(iters)]
         
-        # processes = []
-        # for i in range(iters):
-        #     tr_neg = np.random.choice(range(1,tr_neg_n), size = int(tr_neg_n/10),replace=False)
-        #     tr_neg = np.concatenate([tr_neg, [0]])
-        #     X_train_neg1 = pd.read_csv(X_train_neg, skiprows=lambda i: i not in tr_neg)
-        #     X_train = pd.concat([X_train_pos, X_train_neg1])
-        #     y_train = np.concatenate([y_train_pos, y_train_neg])
-
-        #     te_pos = np.random.choice(range(1,te_pos_n), size=int(te_pos_n/10), replace=False)
-        #     te_pos = np.concatenate([te_pos,[0]])
-        #     X_test_pos1 = pd.read_csv(X_test_pos, skiprows = lambda i: i not in te_pos)
-        #     te_neg = np.random.choice(range(1,te_neg_n), size=int(te_neg_n/10), replace=False)
-        #     te_neg = np.concatenate([te_neg,[0]])
-        #     X_test_neg1 = pd.read_csV(X_test_neg, skiprows = lambda i: i not in te_neg)
-        #     X_test = pd.concat([X_test_pos1, X_test_neg1])
-        #     y_test = np.concatenate([y_test_pos, y_test_neg])            
-
-        #     process = Machine(alg, i, X_train, y_train, X_test, y_test)
-        #     processes.append(process)
+        # Execute the processes in batches and wait until they are finished to start the new batch
         batches = range(int((iters-1)/jobs+1))
         for i in batches:
             for process in processes[i*jobs:(i+1)*jobs]:
                 process.start()
             for process in processes[i*jobs:(i+1)*jobs]:
                 process.join()
+        
+        # Calculate and store the average metrics per variant
         TP = np.array([process.TP.value,process.TP.value,process.TP.value,process.TP.value], dtype='float64')
         posest = np.array([0,0,0,0], dtype='float64')
         bias = np.array([0,0,0,0], dtype='float64')
@@ -315,6 +270,7 @@ if __name__ == "__main__":
         MCC /= iters
         AUROC /= iters
 
+        # Store the metrics as results in a .csv
         dfmets = pd.DataFrame(columns= ['Positive class weight','BayesCal?','Proba?',
                                        'TP','Pos. Est.','Bias','sPCC',
                                        'Acc','BA','MCC','AUROC'])
@@ -326,12 +282,3 @@ if __name__ == "__main__":
         dfmets.to_csv(outfile[:-4]+' '+str(np.round(j,4))+'.csv')
         
     print(time()-start)
-
-# print("Iterating over the log scale: Done!")
-# print()
-
-# print("Storing metrics: ...")
-# # dfsvm.to_csv(outfile)
-# print("Storing metrics: Done!")
-# print("Finished!")
-# print()
