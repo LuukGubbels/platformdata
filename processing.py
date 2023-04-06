@@ -4,12 +4,10 @@ import sys, getopt
 sys.path.append('../')
 import thesis_module as tm
 
-infile = "../randomSample_purified_data2.csv"
-
 argv = sys.argv[1:]
 
 try:
-    opts, args = getopt.getopt(argv,"i:o",["infile=","outfile="])
+    opts, args = getopt.getopt(argv,"i:o",["infile=","ofile="])
 except getopt.GetoptError:
     raise getopt.GetoptError
     sys.exit(2)
@@ -18,13 +16,14 @@ if '?' in args or 'help' in args:
     print('This file is used to process data.')
     print()
     print('Options:')
-    print('-i, --infile:  Defines the file that requires processing.')
+    print('-i, --infile:  Defines the file that requires processing. Input as a .csv file with extension. No default.')
+    print('-o, --ofile:   Defines the file that is used for output. Input as a .csv file with extension. No default.')
     print()
     sys.exit(2)
 for opt, arg in opts:
     if opt in ("-i","--infile"):
         infile = arg.strip('][').split(',')
-    elif opt in ("-o","--outfile"):
+    elif opt in ("-o","--ofile"):
         outfile = arg
 
 frames = []
