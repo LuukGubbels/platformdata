@@ -5,11 +5,11 @@ if __name__ == "__main__":
     print()
     argv = sys.argv[1:]
 
-    X_train_pos = '../platformSample_data2 processed.csv'
-    X_train_neg = '../platformSample_data2 processed.csv'
-    X_test_pos = '../randomSample_purified_data2 processed.csv'
-    X_test_neg = '../randomSample_purified_data2 processed.csv'
-    outfile = '../Results/EnsembleResults.csv'
+    X_train_pos = 'data/X_train_pos processed.csv'
+    X_train_neg = 'data/X_train_neg processed.csv'
+    X_test_pos = 'data/X_test_pos processed.csv'
+    X_test_neg = 'data/X_test_neg processed.csv'
+    outfile = 'results/EnsembleResults.csv'
     iters = 3
     size = 3
     avg = 2
@@ -18,8 +18,8 @@ if __name__ == "__main__":
     
     try:
         opts, args = getopt.getopt(argv,
-                "trp:trn:tep:ten:o:n:s:a:j:",
-                ["trpos=","trneg=","tepos=","teneg=","test=","ofile=","iters=","size=","avg=","jobs="])
+                "P:N:p:n:o:m:s:a:j:f:",
+                ["trpos=","trneg=","tepos=","teneg=","test=","ofile=","iters=","size=","avg=","jobs=","feats="])
     except getopt.GetoptError:
         sys.exit(2)
     if '?' in args or 'help' in args:
@@ -28,12 +28,12 @@ if __name__ == "__main__":
         print('Note that all input files should be processed by processed.py before using.')
         print()
         print('Options:')
-        print('-trp, --trpos: Defines the file from which positive training data should be read. Input as a .csv file with extension.')
-        print('-trn, --trneg: Defines the file from which negative training data should be read. Input as a .csv file with extension.')
-        print('-tep, --tepos: Defines the file from which positive testing data should be read. Input as a .csv file with extension.')
-        print('-ten, --teneg: Defines the file from which negative testing data should be read. Input as a .csv file with extension.')
+        print('-P, --trpos: Defines the file from which positive training data should be read. Input as a .csv file with extension.')
+        print('-N, --trneg: Defines the file from which negative training data should be read. Input as a .csv file with extension.')
+        print('-p, --tepos: Defines the file from which positive testing data should be read. Input as a .csv file with extension.')
+        print('-n, --teneg: Defines the file from which negative testing data should be read. Input as a .csv file with extension.')
         print('-o, --ofile:   Defines the file in which results should be stored. Input with a file extension.')
-        print('-n, --iters:   Defines the number of ensembles that should be used.')
+        print('-m, --iters:   Defines the number of ensembles that should be used.')
         print('-s, --size:    Defines the number of machines should be used per ensemble. Non-integer numbers will be rounded down.')
         print('-a, --avg:     Defines the number of iterations needed to average the effects of stemming.')
         print('-f, --feats:   Defines if the features should be stored.')
@@ -41,19 +41,17 @@ if __name__ == "__main__":
         print()
         sys.exit(2)
     for opt, arg in opts:
-        if opt in ("-trp","--trpos"):
+        if opt in ("-P","--trpos"):
             X_train_pos = arg
-        elif opt in ("-trn","--trneg"):
+        elif opt in ("-N","--trneg"):
             X_train_neg = arg
-        elif opt in ("-tep","--tepos"):
+        elif opt in ("-p","--tepos"):
             X_test_pos = arg
-        elif opt in ("-ten","--teneg"):
+        elif opt in ("-n","--teneg"):
             X_test_neg = arg
-        # if opt in ("-i","--ifile"):
-        #     infiles = arg.strip('][').split(',')
         elif opt in ("-o","--ofile"):
             outfile = arg
-        elif opt in ("-n","--iters"):
+        elif opt in ("-m","--iters"):
             iters = int(arg)
         elif opt in ("-s","--size"):
             size = int(arg)
