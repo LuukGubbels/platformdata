@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     try:
         opts, args = getopt.getopt(argv,
-                "trp:trn:tep:ten:o:n:j:f:",
+                "P:N:p:n:o:m:j:f:",
                 ["trpos=","trneg=","tepos=","teneg=","test=","ofile=","iters=","jobs=","feats="])
     except getopt.GetoptError:
         sys.exit(2)
@@ -31,25 +31,23 @@ if __name__ == "__main__":
         print('-ten, --teneg: Defines the file from which negative testing data should be read. Input as a .csv file with extension. Defaults to "data/X_test_neg processed.csv".')
         print('-o, --ofile:   Defines the file in which results should be stored. Input with a file extension. Defaults to "results/BootstrapResults.csv".')
         print('-n, --iters:   Defines the number of machines / bootstrap samples should be used. Non-integer numbers will be rounded down. Defaults to 100.')
-        print('-j, --jobs:    Defines the number of jobs should be used. Non-integer numbers will be rounded down. Defaults to 5.')
+        print('-j, --jobs:    Defines the number of machines should be ran in parallel. Non-integer numbers will be rounded down. Defaults to 5.')
         print('-f, --feats:   Defines if features should be stored. Defaults to False.')
 
         print()
         sys.exit(2)
     for opt, arg in opts:
-        if opt in ("-trp","--trpos"):
+        if opt in ("-P","--trpos"):
             X_train_pos = arg
-        elif opt in ("-trn","--trneg"):
+        elif opt in ("-N","--trneg"):
             X_train_neg = arg
-        elif opt in ("-tep","--tepos"):
+        elif opt in ("-p","--tepos"):
             X_test_pos = arg
-        elif opt in ("-ten","--teneg"):
+        elif opt in ("-n","--teneg"):
             X_test_neg = arg
-        # if opt in ("-i","--ifile"):
-        #     infiles = arg.strip('][').split(',')
         elif opt in ("-o","--ofile"):
             outfile = arg
-        elif opt in ("-n","--iters"):
+        elif opt in ("-m","--iters"):
             iters = int(arg)
         elif opt in ("-j","--jobs"):
             jobs = int(arg)
