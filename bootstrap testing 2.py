@@ -4,11 +4,11 @@ if __name__ == "__main__":
     print()
     argv = sys.argv[1:]
 
-    X_train_pos = '../platformSample_data2 processed.csv'
-    X_train_neg = '../platformSample_data2 processed.csv'
-    X_test_pos = '../randomSample_purified_data2 processed.csv'
-    X_test_neg = '../randomSample_purified_data2 processed.csv'
-    outfile = '../Results/BootstrapResults.csv'
+    X_train_pos = 'data/X_train_pos processed.csv'
+    X_train_neg = 'data/X_train_neg processed.csv'
+    X_test_pos = 'data/X_test_pos processed.csv'
+    X_test_neg = 'data/X_test_neg processed.csv'
+    outfile = 'results/BootstrapResults.csv'
     iters = 100
     jobs = 5
     feats = False
@@ -29,7 +29,7 @@ if __name__ == "__main__":
         print('-trn, --trneg: Defines the file from which negative training data should be read. Input as a .csv file with extension. Defaults to "data/X_train_neg processed.csv".')
         print('-tep, --tepos: Defines the file from which positive testing data should be read. Input as a .csv file with extension. Defaults to "data/X_test_pos processed.csv".')
         print('-ten, --teneg: Defines the file from which negative testing data should be read. Input as a .csv file with extension. Defaults to "data/X_test_neg processed.csv".')
-        print('-o, --ofile:   Defines the file in which results should be stored. Input with a file extension. Defaults to "../Results/BootstrapResults.csv".')
+        print('-o, --ofile:   Defines the file in which results should be stored. Input with a file extension. Defaults to "results/BootstrapResults.csv".')
         print('-n, --iters:   Defines the number of machines / bootstrap samples should be used. Non-integer numbers will be rounded down. Defaults to 100.')
         print('-j, --jobs:    Defines the number of jobs should be used. Non-integer numbers will be rounded down. Defaults to 5.')
         print('-f, --feats:   Defines if features should be stored. Defaults to False.')
