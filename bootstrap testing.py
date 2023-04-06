@@ -120,7 +120,7 @@ class Machine(Process):
             features_w = np.vstack([features, self.alg.classifier.coef_[0]]).T
             pd.DataFrame(features_w, columns=["Features","Weights"]).to_csv('features/BootstrapFeats'+str(self.id)+'.csv')
 
-        # Process the test set and use the different predictions variants
+        # Process the test set and predict its labels/probabilities per variant
         self.X_test = tm.processing(self.X_test, tfidfvectorizer=tfidfvectorizer, cv=cv)
         
         self.y_pred.append(self.alg.predict(self.X_test, new_threshold = False, cal = False))
